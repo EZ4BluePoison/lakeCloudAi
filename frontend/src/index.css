@@ -1,0 +1,172 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Floating cloud animation for the bottom-right float button */
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px) translateX(0px) rotate(0deg);
+  }
+  25% {
+    transform: translateY(-3px) translateX(2px) rotate(1.5deg);
+  }
+  50% {
+    transform: translateY(-1px) translateX(-2px) rotate(-1deg);
+  }
+  75% {
+    transform: translateY(-4px) translateX(1px) rotate(0.5deg);
+  }
+}
+
+.animate-float {
+  animation: float 4s ease-in-out infinite;
+}
+
+@layer base {
+  :root {
+    /* Feishu-style light theme tokens */
+    --background: 220 9% 97%;
+    --foreground: 220 14% 10%;
+    --card: 0 0% 100%;
+    --card-foreground: 220 14% 10%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 14% 10%;
+    --primary: 226 100% 56%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 220 9% 97%;
+    --secondary-foreground: 220 14% 10%;
+    --muted: 220 9% 97%;
+    --muted-foreground: 215 9% 52%;
+    --accent: 226 100% 56%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 220 7% 88%;
+    --input: 220 7% 88%;
+    --ring: 226 100% 56%;
+    --radius: 0.5rem;
+    --sidebar-background: 220 9% 97%;
+    --sidebar-foreground: 220 14% 10%;
+    --sidebar-primary: 226 100% 56%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 220 9% 93%;
+    --sidebar-accent-foreground: 220 14% 10%;
+    --sidebar-border: 220 7% 88%;
+    --sidebar-ring: 226 100% 56%;
+
+    /* Feishu palette */
+    --bg-primary: #FFFFFF;
+    --bg-sidebar: #F5F6F7;
+    --bg-middle: #FFFFFF;
+    --bg-hover: #F2F3F5;
+    --bg-active: #E8F1FF;
+    --bg-overlay: rgba(0, 0, 0, 0.4);
+    --bg-card: #FFFFFF;
+    --bg-input: #F2F3F5;
+
+    --text-primary: #1F2329;
+    --text-secondary: #8F959E;
+    --text-tertiary: #BBBFC4;
+    --text-accent: #FFFFFF;
+
+    --accent-primary: #3370FF;
+    --accent-primary-hover: #245BDB;
+    --accent-success: #00B96B;
+    --accent-danger: #F54A45;
+    --accent-warning: #FF7D00;
+
+    --border-color: #DEE0E3;
+    --border-light: #EBEBEB;
+
+    --shadow-card: 0 1px 2px rgba(31, 35, 41, 0.05);
+    --shadow-card-hover: 0 4px 12px rgba(31, 35, 41, 0.08);
+    --shadow-modal: 0 8px 32px rgba(31, 35, 41, 0.12);
+    --shadow-glow-sm: 0 0 0 2px rgba(51, 112, 255, 0.15);
+  }
+
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  html, body, #root {
+    height: 100vh;
+    width: 100vw;
+    overflow: hidden;
+    background: var(--bg-sidebar);
+    color: var(--text-primary);
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  ::-webkit-scrollbar {
+    width: 5px;
+    height: 5px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--text-tertiary);
+    border-radius: 3px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--text-secondary);
+  }
+}
+
+@layer utilities {
+  .gradient-text {
+    color: var(--accent-primary);
+    background: none;
+    -webkit-background-clip: unset;
+    -webkit-text-fill-color: unset;
+    background-clip: unset;
+  }
+
+  .gradient-border {
+    position: relative;
+  }
+
+  .gradient-border::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    background: var(--accent-primary);
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+  }
+
+  .fade-in-up {
+    animation: fadeInUp 0.3s ease-out forwards;
+  }
+
+  @keyframes fadeInUp {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* Hide scrollbar for tabs and horizontal scroll areas */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+}

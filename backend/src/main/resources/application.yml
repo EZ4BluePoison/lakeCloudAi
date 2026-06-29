@@ -1,0 +1,44 @@
+server:
+  port: 8080
+  servlet:
+    encoding:
+      charset: UTF-8
+      enabled: true
+      force: true
+      force-request: true
+      force-response: true
+
+spring:
+  application:
+    name: lakecloud-ai
+
+  datasource:
+    driver-class-name: org.postgresql.Driver
+    url: jdbc:postgresql://localhost:5433/lakecloud_ai
+    username: postgres
+    password: postgres
+
+  redis:
+    host: localhost
+    port: 6380
+    database: 0
+    timeout: 3000
+
+mybatis:
+  mapper-locations: classpath:mapper/*.xml
+  type-aliases-package: com.lakecloud.ai.entity
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+
+ai:
+  wuxidata:
+    app-id: ${WUXIDATA_APP_ID:zhouyunfei18706197825}
+    app-key: ${WUXIDATA_APP_KEY:fc643a0d1a6411f09fcf3e2aece68582}
+    base-url: ${WUXIDATA_BASE_URL:https://glai2.wuxidata.com.cn:8000}
+    model: ${WUXIDATA_MODEL:/model/Qwen3-Next}
+    timeout: ${WUXIDATA_TIMEOUT:60000}
+
+logging:
+  level:
+    com.lakecloud.ai: debug

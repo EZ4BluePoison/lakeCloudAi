@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.lakecloud.ai.mapper.ConversationMapper">
+
+    <resultMap id="BaseResultMap" type="com.lakecloud.ai.entity.Conversation">
+        <id column="id" property="id"/>
+        <result column="user_id" property="userId"/>
+        <result column="agent_id" property="agentId"/>
+        <result column="title" property="title"/>
+        <result column="created_at" property="createdAt"/>
+        <result column="updated_at" property="updatedAt"/>
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id, user_id, agent_id, title, created_at, updated_at
+    </sql>
+
+    <select id="findByUserId" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/> FROM conversations WHERE user_id = #{userId}
+    </select>
+
+    <select id="findById" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/> FROM conversations WHERE id = #{id}
+    </select>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id" keyColumn="id">
+        INSERT INTO conversations (user_id, agent_id, title, created_at, updated_at)
+        VALUES (#{userId}, #{agentId}, #{title}, NOW(), NOW())
+    </insert>
+
+    <update id="update">
+        UPDATE conversations
+        SET user_id = #{userId},
+            agent_id = #{agentId},
+            title = #{title},
+            updated_at = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM conversations WHERE id = #{id}
+    </delete>
+
+</mapper>
