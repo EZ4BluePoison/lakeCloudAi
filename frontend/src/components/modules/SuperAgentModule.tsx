@@ -5,142 +5,20 @@ import {
   Scale, FolderKanban, Headphones, MonitorCog
 } from 'lucide-react';
 import type { ChatPanelMessage as ChatMessage } from '@/types';
-
-/** Route user query to the best matching agent category */
-function routeQuery(query: string): { agentId: string; agentName: string; category: string } {
-  const q = query.toLowerCase();
-
-  // 行政类关键词
-  if (/公文|通知|报告|请示|纪要|文件|写作|文档|稿件/.test(q)) {
-    return { agentId: 'plaza-2', agentName: '公文写作助手', category: '行政类' };
-  }
-  if (/会议|议程|排期|会议室|日程|安排/.test(q)) {
-    return { agentId: 'plaza-3', agentName: '会议智能助手', category: '行政类' };
-  }
-  if (/招聘|简历|面试|人事|员工|入职|离职|绩效/.test(q)) {
-    return { agentId: 'plaza-4', agentName: '人事招聘助手', category: '行政类' };
-  }
-  if (/培训|学习|课程|考试|考核|技能|发展/.test(q)) {
-    return { agentId: 'plaza-5', agentName: '员工培训助手', category: '行政类' };
-  }
-  if (/审批|流程|申请|OA|签报|用印|请假|出差/.test(q)) {
-    return { agentId: 'plaza-6', agentName: '流程审批助手', category: '行政类' };
-  }
-  if (/待办|任务|todo|清单|提醒|催办/.test(q)) {
-    return { agentId: 'plaza-7', agentName: '智能待办助手', category: '行政类' };
-  }
-  if (/晨报|日报|早报|摘要|概览|今天.*安排/.test(q)) {
-    return { agentId: 'plaza-8', agentName: '每日晨报助手', category: '行政类' };
-  }
-
-  // 财务类关键词
-  if (/报销|发票|差旅|费用|财务|预算|付款|收款|会计|审计/.test(q)) {
-    return { agentId: 'plaza-9', agentName: '智能报销助手', category: '财务类' };
-  }
-
-  // 商务类关键词
-  if (/合同.*生成|生成.*合同|起草.*合同|合同.*模板/.test(q)) {
-    return { agentId: 'plaza-11', agentName: '合同生成助手', category: '商务类' };
-  }
-  if (/合同|合规|法务|法律|风险|条款|协议/.test(q)) {
-    return { agentId: 'plaza-10', agentName: '合同合规助手', category: '商务类' };
-  }
-  if (/售前|方案|投标|报价|客户|商务|销售/.test(q)) {
-    return { agentId: 'plaza-12', agentName: '售前方案助手', category: '商务类' };
-  }
-
-  // 管控类关键词
-  if (/项目|进度|风险|管理|计划|里程碑|PM/.test(q)) {
-    return { agentId: 'plaza-13', agentName: '项目管理助手', category: '管控类' };
-  }
-  if (/安全|生产|隐患|事故|检修/.test(q)) {
-    return { agentId: 'plaza-14', agentName: '安全生产助手', category: '管控类' };
-  }
-
-  // 运营类关键词
-  if (/膳食|餐饮|食堂|菜品|用餐|食物|午餐|晚餐|订餐/.test(q)) {
-    return { agentId: 'plaza-16', agentName: '智能膳食助手', category: '运营类' };
-  }
-  if (/物业|报修|水电|房租|设施|环境|保洁/.test(q)) {
-    return { agentId: 'plaza-15', agentName: '物业语音助手', category: '运营类' };
-  }
-  if (/IT|运维|网络|服务器|故障|系统|电脑|软件/.test(q)) {
-    return { agentId: 'plaza-17', agentName: 'IT运维助手', category: '运营类' };
-  }
-
-  // 市政类关键词
-  if (/积水|防汛|天气|水位|隧道|桥下/.test(q)) {
-    return { agentId: 'plaza-18', agentName: '积水识别助手', category: '市政类' };
-  }
-  if (/设备.*维护|维护.*设备|保养|维修|机器/.test(q)) {
-    return { agentId: 'plaza-19', agentName: '设备维护助手', category: '市政类' };
-  }
-
-  // 金融类关键词
-  if (/营收|利润|业绩|经营|指标|数据查询|业务数据/.test(q)) {
-    return { agentId: 'plaza-20', agentName: '前台问数助手', category: '金融类' };
-  }
-  if (/资产负债|投资回报|财务分析|深度分析|ROI/.test(q)) {
-    return { agentId: 'plaza-21', agentName: '后台问数助手', category: '金融类' };
-  }
-
-  // 客服类关键词
-  if (/客服|咨询|投诉|建议|反馈|帮助|服务/.test(q)) {
-    return { agentId: 'plaza-22', agentName: '在线客服助手', category: '客服类' };
-  }
-
-  // Default: 知识问答助手
-  return { agentId: 'plaza-1', agentName: '知识问答助手', category: '行政类' };
-}
-
-/** Generate a contextual response based on the query */
-function generateResponse(query: string, agentName: string, category: string): string {
-  const q = query.toLowerCase();
-
-  // 报销相关
-  if (agentName === '智能报销助手') {
-    if (/标准|额度|多少/.test(q)) {
-      return '根据集团2026年差旅报销标准：\n\n✈️ **交通**：经济舱限800元/程，高铁二等座据实报销\n🏨 **住宿**：一线城市400元/晚，其他城市300元/晚\n🍱 **餐补**：100元/天\n🚕 **市内交通**：80元/天\n\n需要我帮您生成差旅申请单或报销单吗？';
-    }
-    return '您好！我是智能报销助手，可以帮您：\n\n• 🧾 识别发票信息\n• 📋 智能填报报销单\n• ✅ 合规规则校验\n• 📎 自动匹配附件要求\n• 📊 报销进度追踪\n\n请描述您的报销需求，或上传发票图片。';
-  }
-
-  // 公文相关
-  if (agentName === '公文写作助手') {
-    return '您好！我是公文写作助手，支持以下文体：\n\n• 📄 **通知** — 事项通知、会议通知、任免通知\n• 📊 **报告** — 工作报告、调研报告、总结报告\n• 📝 **请示** — 事项请示、经费请示\n• 📋 **纪要** — 会议纪要、座谈纪要\n• 📨 **函件** — 商洽函、答复函\n\n请告诉我您需要写什么类型的公文，以及主要内容要点。';
-  }
-
-  // 会议相关
-  if (agentName === '会议智能助手') {
-    return '您好！我可以帮您全程管理会议：\n\n• 📅 **智能排期** — 自动避开参会人冲突\n• 📝 **议程生成** — 根据主题生成结构化议程\n• 🎤 **纪要提取** — 实时转录并提取要点\n• ✅ **待办追踪** — 自动提取待办事项\n• 📍 **会议室预定** — 查看并预定可用会议室\n\n请告诉我会议主题和参会人员，我立即为您安排。';
-  }
-
-  // 项目管理
-  if (agentName === '项目管理助手') {
-    return '您好！我是项目管理助手，当前能力包括：\n\n• 📊 进度自动跟踪\n• ⚠️ 风险智能预警\n• 🧑‍💻 资源优化调配\n• 📈 甘特图自动生成\n• 📑 项目报告一键生成\n\n请告诉我您关注的项目，我可以为您生成进度报告或分析风险点。';
-  }
-
-  // IT运维
-  if (agentName === 'IT运维助手') {
-    return '您好！IT运维助手已就绪，我可以帮您：\n\n• 🔍 故障智能诊断\n• 🤖 自动化运维脚本执行\n• 📊 告警智能分析\n• 📈 性能趋势预测\n• 📚 知识库自动匹配解决方案\n\n请描述您遇到的IT问题，我会快速定位并提供解决方案。';
-  }
-
-  // 合同合规
-  if (agentName === '合同合规助手') {
-    return '您好！我是合同合规助手，可以为您提供：\n\n• 📋 合同条款合规审查\n• ⚠️ 风险点自动识别\n• ⚖️ 法规智能匹配\n• 📝 审查意见生成\n• 📊 历史合同对比分析\n\n请上传合同文件或描述需要审查的内容，我立即为您分析。';
-  }
-
-  // 知识问答 (default)
-  return `您好！我是${agentName}，已理解您的问题「${query}」。\n\n根据您的提问内容，我已为您匹配到 **${category}** 的「${agentName}」。\n\n您可以进一步描述具体需求，例如：\n• 补充更多背景信息\n• 明确您需要的输出格式\n• 提供相关数据或文件\n\n我将为您生成专业、准确的回答。`;
-}
+import { sendMessage, sendMessageToAgent, type RoutedAgent } from '@/services/superAgentService';
 
 // ====== Main Component ======
 
+type Stage = 'home' | 'chat';
+
 export default function SuperAgentModule() {
-  const [hasSearched, setHasSearched] = useState(false);
+  const [stage, setStage] = useState<Stage>('home');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [conversationId, setConversationId] = useState<string | undefined>(undefined);
+  const [activeAgent, setActiveAgent] = useState<RoutedAgent | null>(null);
+  const [followUpOptions, setFollowUpOptions] = useState<string[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -152,40 +30,80 @@ export default function SuperAgentModule() {
     scrollToBottom();
   }, [messages, isTyping, scrollToBottom]);
 
-  const handleSend = useCallback(() => {
-    const text = inputValue.trim();
-    if (!text) return;
-
-    // Route query to best agent
-    const route = routeQuery(text);
+  const handleSend = useCallback(async (overrideText?: string) => {
+    const text = (overrideText ?? inputValue).trim();
+    if (!text || isTyping) return;
 
     const userMsg: ChatMessage = {
       id: `msg-${Date.now()}`,
       role: 'user',
       content: text,
       timestamp: new Date(),
-      agentId: 'super',
+      agentId: activeAgent?.agentId || 'super',
     };
 
     setMessages(prev => [...prev, userMsg]);
     setInputValue('');
     setIsTyping(true);
-    setHasSearched(true);
+    setStage('chat');
 
-    // Simulate AI response
-    setTimeout(() => {
-      const response = generateResponse(text, route.agentName, route.category);
+    try {
+      if (!activeAgent) {
+        // 首次输入：先识别意图，再固定助手
+        const result = await sendMessage(text, conversationId);
+        setConversationId(result.conversationId);
+        setActiveAgent(result.route);
+
+        const routeMsg: ChatMessage = {
+          id: `msg-${Date.now()}-route`,
+          role: 'assistant',
+          content: `🤖 已为您匹配「${result.route.agentName}」（${result.route.category}），接下来由该助手继续为您服务。`,
+          timestamp: new Date(),
+          agentId: result.route.agentId,
+        };
+        const aiMsg: ChatMessage = {
+          id: result.messageId || `msg-${Date.now() + 1}`,
+          role: 'assistant',
+          content: result.content,
+          timestamp: new Date(),
+          agentId: result.route.agentId,
+        };
+        setMessages(prev => [...prev, routeMsg, aiMsg]);
+        setFollowUpOptions(result.followUpOptions || []);
+      } else {
+        // 已进入对话：固定助手，不再重新识别
+        const result = await sendMessageToAgent(activeAgent, text, conversationId);
+        setConversationId(result.conversationId);
+
+        const aiMsg: ChatMessage = {
+          id: result.messageId || `msg-${Date.now() + 1}`,
+          role: 'assistant',
+          content: result.content,
+          timestamp: new Date(),
+          agentId: activeAgent.agentId,
+        };
+        setMessages(prev => [...prev, aiMsg]);
+        setFollowUpOptions(result.followUpOptions || []);
+      }
+    } catch (error) {
+      const errorText = error instanceof Error ? error.message : '请求失败，请稍后重试';
       const aiMsg: ChatMessage = {
         id: `msg-${Date.now() + 1}`,
         role: 'assistant',
-        content: `> 🤖 已为您匹配「${route.agentName}」（${route.category}）\n\n${response}`,
+        content: `抱歉，超级助手处理失败：${errorText}`,
         timestamp: new Date(),
-        agentId: route.agentId,
+        agentId: activeAgent?.agentId || 'super',
       };
       setMessages(prev => [...prev, aiMsg]);
+    } finally {
       setIsTyping(false);
-    }, 1200);
-  }, [inputValue]);
+    }
+  }, [inputValue, isTyping, conversationId, activeAgent]);
+
+  const handleFollowUpClick = useCallback((question: string) => {
+    setInputValue(question);
+    handleSend(question);
+  }, [handleSend]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -215,6 +133,14 @@ export default function SuperAgentModule() {
     inputRef.current?.focus();
   };
 
+  const clearSession = () => {
+    setStage('home');
+    setMessages([]);
+    setConversationId(undefined);
+    setActiveAgent(null);
+    setFollowUpOptions([]);
+  };
+
   return (
     <div className="flex flex-col h-full bg-white relative">
       {/* Header */}
@@ -223,14 +149,29 @@ export default function SuperAgentModule() {
           <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #3370FF 0%, #00E5FF 100%)' }}>
             <Cloud className="w-4 h-4 text-white" />
           </div>
-          <span className="text-[15px] font-semibold text-[#1F2329]">超级助手</span>
+          <div className="flex flex-col">
+            <span className="text-[15px] font-semibold text-[#1F2329]">超级助手</span>
+            {activeAgent && (
+              <span className="text-[11px] text-[#8F959E]">当前助手：{activeAgent.agentName}</span>
+            )}
+          </div>
         </div>
-        <span className="text-[11px] text-[#8F959E] bg-[#E8F1FF] px-2 py-1 rounded-full">智能路由</span>
+        <div className="flex items-center gap-2">
+          {activeAgent && (
+            <button
+              onClick={clearSession}
+              className="text-[12px] text-[#3370FF] hover:text-[#245BDB] px-2 py-1 rounded hover:bg-[#E8F1FF] transition-colors"
+            >
+              切换助手
+            </button>
+          )}
+          <span className="text-[11px] text-[#8F959E] bg-[#E8F1FF] px-2 py-1 rounded-full">智能路由</span>
+        </div>
       </div>
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto">
-        {!hasSearched ? (
+        {stage === 'home' ? (
           /* ====== Search Home (Baidu style) ====== */
           <div className="flex flex-col items-center justify-center min-h-full px-4 -mt-10">
             {/* Large Logo */}
@@ -258,10 +199,10 @@ export default function SuperAgentModule() {
                   style={{ fieldSizing: 'content' }}
                 />
                 <button
-                  onClick={handleSend}
-                  disabled={!inputValue.trim()}
+                  onClick={() => handleSend()}
+                  disabled={!inputValue.trim() || isTyping}
                   className={`w-10 h-10 rounded-xl flex items-center justify-center mb-0.5 transition-all duration-200 ${
-                    inputValue.trim()
+                    inputValue.trim() && !isTyping
                       ? 'bg-[#3370FF] text-white hover:bg-[#245BDB] shadow-md'
                       : 'bg-[#F2F3F5] text-[#BBBFC4]'
                   }`}
@@ -318,7 +259,7 @@ export default function SuperAgentModule() {
             {/* Back to search */}
             <div className="flex items-center gap-2 px-6 py-3 border-b border-[#F2F3F5]">
               <button
-                onClick={() => { setHasSearched(false); setMessages([]); }}
+                onClick={clearSession}
                 className="flex items-center gap-1 text-[13px] text-[#8F959E] hover:text-[#3370FF] transition-colors"
               >
                 <ArrowLeft className="w-4 h-4" />
@@ -363,6 +304,28 @@ export default function SuperAgentModule() {
                   </div>
                 ))}
 
+                {/* Follow-up questions */}
+                {!isTyping && followUpOptions.length > 0 && (
+                  <div className="flex gap-3">
+                    <div className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 opacity-0" />
+                    <div className="max-w-[600px]">
+                      <div className="text-[12px] text-[#8F959E] mb-2">您可能还想问：</div>
+                      <div className="flex flex-wrap gap-2">
+                        {followUpOptions.map((question, idx) => (
+                          <button
+                            key={`${question}-${idx}`}
+                            onClick={() => handleFollowUpClick(question)}
+                            disabled={isTyping}
+                            className="px-3 py-1.5 rounded-full text-[12px] bg-white border border-[#DEE0E3] text-[#646A73] hover:border-[#3370FF] hover:text-[#3370FF] hover:bg-[#F5F9FF] transition-all text-left"
+                          >
+                            {question}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {/* Typing */}
                 {isTyping && (
                   <div className="flex gap-3">
@@ -398,10 +361,10 @@ export default function SuperAgentModule() {
                     style={{ fieldSizing: 'content' }}
                   />
                   <button
-                    onClick={handleSend}
-                    disabled={!inputValue.trim()}
+                    onClick={() => handleSend()}
+                    disabled={!inputValue.trim() || isTyping}
                     className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all mb-0.5 ${
-                      inputValue.trim()
+                      inputValue.trim() && !isTyping
                         ? 'bg-[#3370FF] text-white hover:bg-[#245BDB]'
                         : 'bg-[#EBEBEB] text-[#BBBFC4]'
                     }`}

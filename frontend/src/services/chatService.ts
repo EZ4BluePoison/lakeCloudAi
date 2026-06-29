@@ -1,4 +1,5 @@
 import { bffService } from './bffService';
+import { createModelService } from './modelService';
 import { getAgentPrompt } from '@/data/agentPrompts';
 import type { Citation } from '@/types';
 
@@ -132,6 +133,45 @@ const followUpTemplates: Record<string, FollowUpSuggestion[]> = {
   ],
 };
 
+/** 按智能体 ID 预设的后续问题（兜底时用，避免关键词误匹配） */
+const agentFollowUpTemplates: Record<string, FollowUpSuggestion[]> = {
+  'plaza-1': [
+    { question: '可以举个例子说明吗？', relevance: 1.0 },
+    { question: '这个规定适用于哪些场景？', relevance: 0.95 },
+    { question: '最新的政策文件在哪里查看？', relevance: 0.9 },
+  ],
+  'plaza-2': [
+    { question: '这个格式可以调整吗？', relevance: 1.0 },
+    { question: '需要添加哪些附件？', relevance: 0.95 },
+    { question: '审批流程是怎样的？', relevance: 0.9 },
+  ],
+  'plaza-3': [
+    { question: '需要发送会议邀请吗？', relevance: 1.0 },
+    { question: '会议时长建议多久？', relevance: 0.95 },
+    { question: '需要预定会议室吗？', relevance: 0.9 },
+  ],
+  'plaza-9': [
+    { question: '报销流程是怎样的？', relevance: 1.0 },
+    { question: '需要哪些凭证？', relevance: 0.95 },
+    { question: '报销有时间限制吗？', relevance: 0.9 },
+  ],
+  'plaza-10': [
+    { question: '这份合同有哪些主要风险点？', relevance: 1.0 },
+    { question: '需要补充哪些条款？', relevance: 0.95 },
+    { question: '是否符合最新法规要求？', relevance: 0.9 },
+  ],
+  'plaza-13': [
+    { question: '当前项目的主要风险是什么？', relevance: 1.0 },
+    { question: '下阶段的关键里程碑有哪些？', relevance: 0.95 },
+    { question: '资源分配是否需要调整？', relevance: 0.9 },
+  ],
+  'plaza-17': [
+    { question: '这个问题的根因是什么？', relevance: 1.0 },
+    { question: '有没有标准处理流程？', relevance: 0.95 },
+    { question: '需要提交工单吗？', relevance: 0.9 },
+  ],
+};
+
 function getAgentSystemPrompt(agentId: string, agentName: string, description: string): string {
   const agentPrompt = getAgentPrompt(agentId);
   if (agentPrompt?.systemPrompt) {
@@ -141,19 +181,81 @@ function getAgentSystemPrompt(agentId: string, agentName: string, description: s
   return `你是${agentName}，${description}。请根据你的专业知识回答用户的问题，保持回答简洁明了，专业准确。`;
 }
 
-function getRelevantTemplates(content: string): FollowUpSuggestion[] {
+function getRelevantTemplates(agentId: string, content: string): FollowUpSuggestion[] {
+  // 优先按智能体 ID 匹配，避免内容中偶然出现的关键词误触
+  const agentSpecific = agentFollowUpTemplates[agentId];
+  if (agentSpecific) {
+    return agentSpecific;
+  }
+
+  // 其次按回答内容中的关键词匹配
   for (const [keyword, suggestions] of Object.entries(followUpTemplates)) {
-    if (content.includes(keyword) && keyword !== 'default') {
+    if (keyword !== 'default' && content.includes(keyword)) {
       return suggestions;
     }
   }
   return followUpTemplates.default;
 }
 
-function generateFollowUpOptions(content: string): string[] {
-  const suggestions = getRelevantTemplates(content);
+function generateFollowUpOptions(agentId: string, content: string): string[] {
+  const suggestions = getRelevantTemplates(agentId, content);
   const shuffled = [...suggestions].sort(() => Math.random() - 0.5);
   return shuffled.slice(0, 3).map(s => s.question);
+}
+
+/**
+ * 使用 LLM 基于用户问题和模型回答生成 3 个相关后续问题。
+ * 失败或超时时返回空数组，由调用方兜底。
+ */
+async function generateFollowUpOptionsWithLlm(
+  agentName: string,
+  userMessage: string,
+  answer: string
+): Promise<string[]> {
+  try {
+    const modelService = createModelService({
+      provider: 'ollama',
+      model: 'glm4:9b',
+      ollamaBaseUrl: 'http://localhost:11434',
+      temperature: 0.6,
+      topP: 0.9,
+      maxTokens: 256,
+      presencePenalty: 0,
+      frequencyPenalty: 0,
+    });
+
+    const systemPrompt = `你是对话续写助手。请严格根据「用户问题」和「智能体回答」的内容，生成3个用户可能想继续追问的问题。
+要求：
+- 问题必须与回答内容强相关，不能偏离主题
+- 问题要具体、可回答，不要泛泛而谈
+- 每个问题一行，不要编号，不要解释
+- 只输出3个问题，不要输出其他内容`;
+
+    const userPrompt = `智能体：${agentName}
+用户问题："""${userMessage}"""
+回答内容："""${answer.substring(0, 1200)}"""
+
+请生成3个后续问题：`;
+
+    const response = await modelService.chat([
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt },
+    ]);
+
+    const questions = (response.content || '')
+      .split('\n')
+      .map(line => line.trim())
+      .filter(line => line.length > 0)
+      .map(line => line.replace(/^\s*[\d一二三四五六七八九十]+[.、.\s]+/, '').replace(/^[\-•]\s*/, '').trim())
+      .map(line => line.replace(/[?？]\s*$/, '') + '?')
+      .filter(line => line.length > 6 && line.length < 60)
+      .slice(0, 3);
+
+    return questions.length === 3 ? questions : [];
+  } catch (error) {
+    console.warn('[chatService] LLM 生成后续问题失败:', error);
+    return [];
+  }
 }
 
 /**
@@ -181,9 +283,23 @@ export async function sendMessage(
 
   const answer = result.answer || '抱歉，我无法回答这个问题。';
 
+  // 优先用 LLM 生成强相关的后续问题，3 秒超时则降级到关键词模板
+  let followUpOptions: string[] = [];
+  try {
+    followUpOptions = await Promise.race([
+      generateFollowUpOptionsWithLlm(agentName, userMessage, answer),
+      new Promise<string[]>((_, reject) => setTimeout(() => reject(new Error('timeout')), 3000)),
+    ]);
+  } catch {
+    followUpOptions = [];
+  }
+  if (followUpOptions.length === 0) {
+    followUpOptions = generateFollowUpOptions(agentId, answer);
+  }
+
   return {
     content: answer,
-    followUpOptions: generateFollowUpOptions(answer),
+    followUpOptions,
     conversationId: result.conversationId,
     messageId: result.messageId,
     usage: result.metadata?.tokenUsage,
