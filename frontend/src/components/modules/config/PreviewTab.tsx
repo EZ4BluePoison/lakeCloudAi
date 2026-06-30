@@ -7,12 +7,22 @@ interface PreviewTabProps {
   config: AgentConfig;
 }
 
+interface PreviewMessage {
+  role: 'assistant' | 'user';
+  content: string;
+}
+
 export function PreviewTab({ config }: PreviewTabProps) {
   const [input, setInput] = useState('');
-  const [localMessages, setLocalMessages] = useState<any[]>([
+  const [localMessages, setLocalMessages] = useState<PreviewMessage[]>([
     { role: 'assistant', content: '你好！我是知识问答助手，很高兴为您服务。请问有什么关于集团制度或业务流程的问题吗？' }
   ]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const toPreviewMessages = (messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>): PreviewMessage[] =>
+    messages
+      .filter((m): m is PreviewMessage => m.role === 'user' || m.role === 'assistant')
+      .map(m => ({ role: m.role, content: m.content }));
   
   const {
     sessions,
@@ -30,20 +40,19 @@ export function PreviewTab({ config }: PreviewTabProps) {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [localMessages, isLoading]);
   
-  // 当会话切换时更新本地消息
+  // 当会话切换时同步本地消息（从 Zustand store 到本地 UI 状态）
+  /* eslint-disable react-hooks/set-state-in-effect -- intentional store-to-local-state sync */
   useEffect(() => {
     const session = getCurrentSession();
     if (session && session.messages.length > 0) {
-      setLocalMessages(session.messages.map(m => ({
-        role: m.role,
-        content: m.content
-      })));
+      setLocalMessages(toPreviewMessages(session.messages));
     } else {
       setLocalMessages([
         { role: 'assistant', content: '你好！我是知识问答助手，很高兴为您服务。请问有什么关于集团制度或业务流程的问题吗？' }
       ]);
     }
-  }, [currentSessionId, sessions]);
+  }, [currentSessionId, sessions, getCurrentSession]);
+  /* eslint-enable react-hooks/set-state-in-effect */
   
   // 获取系统提示词
   const getSystemPrompt = () => {
@@ -73,10 +82,7 @@ export function PreviewTab({ config }: PreviewTabProps) {
       // 更新本地消息
       const updatedSession = getCurrentSession();
       if (updatedSession) {
-        setLocalMessages(updatedSession.messages.map(m => ({
-          role: m.role,
-          content: m.content
-        })));
+        setLocalMessages(toPreviewMessages(updatedSession.messages));
       }
     } catch (error) {
       console.error('Error sending message:', error);

@@ -34,7 +34,7 @@ export function LLMConfigTab({ config, onChange, onDirty }: LLMConfigTabProps) {
     return [...staticModelMetadatas];
   }, []);
   
-  const handleLLMChange = (field: keyof AgentConfig['llmConfig'], value: any) => {
+  const handleLLMChange = (field: keyof AgentConfig['llmConfig'], value: string | number) => {
     onChange({
       ...config,
       llmConfig: { ...config.llmConfig, [field]: value }
@@ -58,7 +58,7 @@ export function LLMConfigTab({ config, onChange, onDirty }: LLMConfigTabProps) {
       const response = await fetch(`${baseUrl}/api/tags`);
       if (response.ok) {
         const data = await response.json();
-        const models = data.models?.map((m: any) => m.name || m.model) || [];
+        const models = data.models?.map((m: { name?: string; model?: string }) => m.name || m.model) || [];
         setOllamaModels(models);
       }
     } catch (error) {
@@ -76,7 +76,7 @@ export function LLMConfigTab({ config, onChange, onDirty }: LLMConfigTabProps) {
         const response = await fetch(`${baseUrl}/api/tags`);
         if (response.ok) {
           const data = await response.json();
-          const models = data.models?.map((m: any) => m.name || m.model) || [];
+          const models = data.models?.map((m: { name?: string; model?: string }) => m.name || m.model) || [];
           setOllamaModels(models);
           setConnectionStatus('success');
         } else {
@@ -92,7 +92,7 @@ export function LLMConfigTab({ config, onChange, onDirty }: LLMConfigTabProps) {
       } else {
         setConnectionStatus('error');
       }
-    } catch (error) {
+    } catch {
       setConnectionStatus('error');
     } finally {
       setIsTestingConnection(false);

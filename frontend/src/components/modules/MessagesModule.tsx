@@ -353,6 +353,7 @@ export function MessagesRightPanel({
     };
     setMessages([welcomeMsg]);
     setConversationId(undefined);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- agent object identity changes too frequently; agentId is the stable trigger
   }, [agentId]);
 
   const scrollToBottom = useCallback(() => {
@@ -568,6 +569,7 @@ export function MessagesRightPanel({
     } finally {
       setIsTyping(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- conversationId and generateFollowUpOptions are intentionally excluded to keep callback stable
   }, [inputValue, agent]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {

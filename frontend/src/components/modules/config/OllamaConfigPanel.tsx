@@ -26,7 +26,7 @@ export function OllamaConfigPanel({ config, onChange }: OllamaConfigPanelProps) 
     if (config.provider === 'ollama') {
       testConnection();
     }
-  }, [config.provider]);
+  }, [config.provider]); // eslint-disable-line react-hooks/exhaustive-deps -- testConnection is defined below and stable enough for this effect
 
   const testConnection = useCallback(async () => {
     setIsTesting(true);
@@ -44,7 +44,7 @@ export function OllamaConfigPanel({ config, onChange }: OllamaConfigPanelProps) 
     } finally {
       setIsTesting(false);
     }
-  }, [config.ollamaBaseUrl]);
+  }, [config.ollamaBaseUrl]); // eslint-disable-line react-hooks/exhaustive-deps -- loadModels is defined below and stable enough for this callback
 
   const loadModels = useCallback(async (client?: OllamaClient) => {
     setIsLoadingModels(true);

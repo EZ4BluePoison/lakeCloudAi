@@ -52,7 +52,7 @@ export function PromptEditorTab({ config, onChange, onDirty }: PromptEditorTabPr
             <div className="flex items-start justify-between mb-4">
               <div className="flex items-center gap-4">
                 <input type="text" value={prompt.name} onChange={(e) => updatePrompt(prompt.id, { name: e.target.value })} className="text-[15px] font-semibold text-[#1F2329] border-b border-transparent hover:border-[#DEE0E3] focus:border-[#3370FF] outline-none bg-transparent" placeholder="提示词名称" />
-                <select value={prompt.type} onChange={(e) => updatePrompt(prompt.id, { type: e.target.value as any })} className="px-2 py-1 rounded-md text-[12px] bg-[#F2F3F5] text-[#646A73] border-none outline-none">
+                <select value={prompt.type} onChange={(e) => updatePrompt(prompt.id, { type: e.target.value as 'system' | 'user' | 'assistant' })} className="px-2 py-1 rounded-md text-[12px] bg-[#F2F3F5] text-[#646A73] border-none outline-none">
                   <option value="system">System</option>
                   <option value="user">User</option>
                   <option value="assistant">Assistant</option>

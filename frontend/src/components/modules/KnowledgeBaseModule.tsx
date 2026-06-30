@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import {
   Folder, FileText, ChevronRight, ChevronDown, Plus, Trash2, BookOpen, Upload, X,
   Settings2, Pencil, Search, MoreHorizontal, Beaker
@@ -464,19 +464,31 @@ export function KnowledgeBaseMiddlePanel({ deptPath, selectedNodeId, onSelectNod
   const [structureEditOpen, setStructureEditOpen] = useState(false);
   const [uploadTargetId, setUploadTargetId] = useState<string | null>(null);
 
-  const trees = data[deptPath] || [];
+  const trees = useMemo(() => data[deptPath] || [], [data, deptPath]);
   const pathInfo = resolvePath(deptPath);
 
   const handleToggle = useCallback((id: string) => {
-    setExpandedIds(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+    setExpandedIds(prev => {
+      const n = new Set(prev);
+      if (n.has(id)) {
+        n.delete(id);
+      } else {
+        n.add(id);
+      }
+      return n;
+    });
   }, []);
 
   // Filter trees by search
-  const filteredTrees = searchQuery.trim()
-    ? trees.filter(node => filterNode(node, searchQuery.trim()))
-    : trees;
+  const filteredTrees = useMemo(() =>
+    searchQuery.trim()
+      ? trees.filter(node => filterNode(node, searchQuery.trim()))
+      : trees,
+    [trees, searchQuery]
+  );
 
   // Auto-expand when searching
+  /* eslint-disable react-hooks/set-state-in-effect -- intentional auto-expand on search */
   useEffect(() => {
     if (searchQuery.trim()) {
       const matched = new Set<string>();
@@ -494,6 +506,7 @@ export function KnowledgeBaseMiddlePanel({ deptPath, selectedNodeId, onSelectNod
       setExpandedIds(prev => new Set([...prev, ...matched]));
     }
   }, [searchQuery, trees]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const handleAddFolder = useCallback((name: string) => {
     setData(prev => {

@@ -41,7 +41,7 @@ export interface ModelMetadata {
 export interface ChatMessage {
   role: 'system' | 'user' | 'assistant';
   content: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 // 聊天响应
@@ -66,7 +66,7 @@ export interface ChatStreamChunk {
   content: string;
   isDelta: boolean;
   isFinished: boolean;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 // 对话会话
@@ -128,7 +128,7 @@ export interface KnowledgeSearchResult {
   sourceName: string;
   content: string;
   score: number;
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
 }
 
 // 上下文窗口配置

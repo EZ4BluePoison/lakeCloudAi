@@ -143,6 +143,7 @@ function EditStructureDialog({ open, onClose, tree, onTreeChange }: {
   const [addName, setAddName] = useState('');
 
   // Sync local tree when dialog opens
+  /* eslint-disable react-hooks/set-state-in-effect -- intentional props-to-local-state sync on dialog open */
   useEffect(() => {
     if (open) {
       const cloned = JSON.parse(JSON.stringify(tree));
@@ -159,11 +160,16 @@ function EditStructureDialog({ open, onClose, tree, onTreeChange }: {
       setAddingParentId(null);
     }
   }, [open, tree]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const toggleExpand = (id: string) => {
     setExpandedIds(prev => {
       const n = new Set(prev);
-      n.has(id) ? n.delete(id) : n.add(id);
+      if (n.has(id)) {
+        n.delete(id);
+      } else {
+        n.add(id);
+      }
       return n;
     });
   };

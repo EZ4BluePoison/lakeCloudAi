@@ -19,7 +19,7 @@ type ConfigTab = 'basic' | 'llm' | 'prompts' | 'knowledge' | 'behavior' | 'previ
 export default function AgentConfigManager({ onBack }: AgentConfigManagerProps) {
   const [activeTab, setActiveTab] = useState<ConfigTab>('basic');
   const [config, setConfig] = useState<AgentConfig>(knowledgeAgentConfig);
-  const [_hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [, setHasUnsavedChanges] = useState(false);
   const [saving, setSaving] = useState(false);
   const [publishing, setPublishing] = useState(false);
 

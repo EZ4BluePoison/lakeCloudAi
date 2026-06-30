@@ -389,9 +389,10 @@ export const mockModelConfigs: BffModelConfig[] = [
   },
   {
     id: 'model-cfg-002',
-    name: 'OpenAI GPT-4o',
-    provider: 'openai',
-    model: 'gpt-4o',
+    name: '国联 AI 80B 配置',
+    provider: 'wuxidata',
+    model: '/model/Qwen3-Next',
+    apiEndpoint: 'http://localhost:8080',
     scope: 'tenant',
     temperature: 0.7,
     topP: 0.9,

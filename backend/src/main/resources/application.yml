@@ -35,7 +35,8 @@ ai:
   wuxidata:
     app-id: ${WUXIDATA_APP_ID:zhouyunfei18706197825}
     app-key: ${WUXIDATA_APP_KEY:fc643a0d1a6411f09fcf3e2aece68582}
-    base-url: ${WUXIDATA_BASE_URL:https://glai2.wuxidata.com.cn:8000}
+    # Qwen3-Next-80B-A3B 公网地址（根据《AI模型使用手册》配置）
+    base-url: ${WUXIDATA_BASE_URL:https://glai2.wuxidata.com.cn:9000}
     model: ${WUXIDATA_MODEL:/model/Qwen3-Next}
     timeout: ${WUXIDATA_TIMEOUT:60000}
 

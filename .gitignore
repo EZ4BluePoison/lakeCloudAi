@@ -22,3 +22,7 @@ logs
 .env
 .env.local
 .env.*.local
+
+# Local runtime data
+backend/runtime/
+

@@ -47,10 +47,11 @@ export class ModelService {
     }
   }
 
-  async listModels(): Promise<any[]> {
+  async listModels(): Promise<{ name: string; label: string }[]> {
     try {
       if (this.config.provider === 'ollama' && this.ollamaClient) {
-        return await this.ollamaClient.listModels();
+        const models = await this.ollamaClient.listModels();
+        return models.map(m => ({ name: m.name || m.model, label: m.name || m.model }));
       }
       
       if (this.config.provider === 'wuxidata') {

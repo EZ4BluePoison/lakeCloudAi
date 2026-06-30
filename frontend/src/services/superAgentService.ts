@@ -39,11 +39,11 @@ async function llmClassifyIntent(query: string, timeoutMs = 3000): Promise<Route
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
-    // 优先走本地 Ollama，速度最快；不可用会快速失败
+    // 统一走国联 AI 80B 模型（Qwen3-Next）做意图识别
     const modelService = createModelService({
-      provider: 'ollama',
-      model: 'glm4:9b',
-      ollamaBaseUrl: 'http://localhost:11434',
+      provider: 'wuxidata',
+      model: '/model/Qwen3-Next',
+      apiEndpoint: 'http://localhost:8080',
       temperature: 0.3,
       topP: 0.9,
       maxTokens: 256,

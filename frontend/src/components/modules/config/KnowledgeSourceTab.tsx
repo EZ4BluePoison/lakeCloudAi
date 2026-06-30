@@ -73,7 +73,7 @@ export function KnowledgeSourceTab({ config, onChange, onDirty }: KnowledgeSourc
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-[13px] font-medium text-[#646A73] mb-2">类型</label>
-                <select value={source.type} onChange={(e) => updateSource(source.id, { type: e.target.value as any })} className="w-full px-3 py-2 rounded-md border border-[#DEE0E3] text-[13px] text-[#1F2329] focus:outline-none focus:ring-2 focus:ring-[#3370FF]/20 focus:border-[#3370FF] transition-all bg-white">
+                <select value={source.type} onChange={(e) => updateSource(source.id, { type: e.target.value as KnowledgeSource['type'] })} className="w-full px-3 py-2 rounded-md border border-[#DEE0E3] text-[13px] text-[#1F2329] focus:outline-none focus:ring-2 focus:ring-[#3370FF]/20 focus:border-[#3370FF] transition-all bg-white">
                   <option value="folder">文件夹</option>
                   <option value="file">文件</option>
                   <option value="database">数据库</option>
@@ -82,7 +82,7 @@ export function KnowledgeSourceTab({ config, onChange, onDirty }: KnowledgeSourc
 
               <div>
                 <label className="block text-[13px] font-medium text-[#646A73] mb-2">检索模式</label>
-                <select value={source.retrievalMode} onChange={(e) => updateSource(source.id, { retrievalMode: e.target.value as any })} className="w-full px-3 py-2 rounded-md border border-[#DEE0E3] text-[13px] text-[#1F2329] focus:outline-none focus:ring-2 focus:ring-[#3370FF]/20 focus:border-[#3370FF] transition-all bg-white">
+                <select value={source.retrievalMode} onChange={(e) => updateSource(source.id, { retrievalMode: e.target.value as KnowledgeSource['retrievalMode'] })} className="w-full px-3 py-2 rounded-md border border-[#DEE0E3] text-[13px] text-[#1F2329] focus:outline-none focus:ring-2 focus:ring-[#3370FF]/20 focus:border-[#3370FF] transition-all bg-white">
                   <option value="semantic">语义搜索</option>
                   <option value="keyword">关键词搜索</option>
                   <option value="hybrid">混合模式</option>

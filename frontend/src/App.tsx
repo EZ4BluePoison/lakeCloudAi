@@ -22,7 +22,7 @@ export default function App() {
   // Module state
   const [activeModule, setActiveModule] = useState<NavModule>('messages');
   const [activeKnowledgeSub, setActiveKnowledgeSub] = useState<KnowledgeSubLevel>('group');
-  const [_configAgentId, setConfigAgentId] = useState<string | null>(null);
+  const [, setConfigAgentId] = useState<string | null>(null);
 
   // Messages module state
   const [selectedChatAgentId, setSelectedChatAgentId] = useState('plaza-1');

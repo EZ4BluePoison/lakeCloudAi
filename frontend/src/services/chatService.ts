@@ -214,9 +214,9 @@ async function generateFollowUpOptionsWithLlm(
 ): Promise<string[]> {
   try {
     const modelService = createModelService({
-      provider: 'ollama',
-      model: 'glm4:9b',
-      ollamaBaseUrl: 'http://localhost:11434',
+      provider: 'wuxidata',
+      model: '/model/Qwen3-Next',
+      apiEndpoint: 'http://localhost:8080',
       temperature: 0.6,
       topP: 0.9,
       maxTokens: 256,
@@ -246,7 +246,7 @@ async function generateFollowUpOptionsWithLlm(
       .split('\n')
       .map(line => line.trim())
       .filter(line => line.length > 0)
-      .map(line => line.replace(/^\s*[\d一二三四五六七八九十]+[.、.\s]+/, '').replace(/^[\-•]\s*/, '').trim())
+      .map(line => line.replace(/^\s*[\d一二三四五六七八九十]+[.、.\s]+/, '').replace(/^[-•]\s*/, '').trim())
       .map(line => line.replace(/[?？]\s*$/, '') + '?')
       .filter(line => line.length > 6 && line.length < 60)
       .slice(0, 3);

@@ -47,7 +47,7 @@ export interface SendChatMessageParams {
   agentId: string;
   query: string;
   conversationId?: string;
-  inputs?: Record<string, any>;
+  inputs?: Record<string, string>;
   responseMode?: 'blocking' | 'streaming';
 }
 
@@ -91,7 +91,7 @@ class BffChatService {
       { role: 'user', content: userPrompt },
     ];
 
-    // 第一优先级：后端 BFF 代理的国联 AI 80B 模型（Qwen3-Next）
+    // 统一使用国联 AI 80B 模型（Qwen3-Next）
     const wuxidataConfig: LLMConfig = {
       provider: 'wuxidata',
       model: '/model/Qwen3-Next',
@@ -103,57 +103,30 @@ class BffChatService {
       frequencyPenalty: 0,
     };
 
-    // 第二优先级：本地 Ollama（无需后端/数据库）
-    const ollamaConfig: LLMConfig = {
-      provider: 'ollama',
-      model: 'glm4:9b',
-      apiEndpoint: 'http://localhost:11434',
-      temperature: 0.6,
-      topP: 0.9,
-      maxTokens: 2048,
-      presencePenalty: 0,
-      frequencyPenalty: 0,
-      ollamaBaseUrl: 'http://localhost:11434',
-    };
-
-    const tryChat = async (config: LLMConfig): Promise<string> => {
-      const modelService = createModelService(config);
-      const response = await modelService.chat(messages);
-      return response.content || '抱歉，我无法回答这个问题。';
-    };
-
     try {
-      const answer = await tryChat(wuxidataConfig);
+      const modelService = createModelService(wuxidataConfig);
+      const response = await modelService.chat(messages);
+      const answer = response.content || '抱歉，我无法回答这个问题。';
       return {
         conversationId,
         messageId,
         answer,
       };
-    } catch (wuxidataError) {
-      console.warn('[BFF] 国联 AI 80B 模型调用失败，尝试本地 Ollama:', wuxidataError);
-      try {
-        const answer = await tryChat(ollamaConfig);
-        return {
-          conversationId,
-          messageId,
-          answer,
-        };
-      } catch (ollamaError) {
-        console.warn('[BFF] 本地 Ollama 也失败，使用兜底 mock 回复:', ollamaError);
-        const answer = generateMockAssistantReply(params.query);
-        return {
-          conversationId,
-          messageId,
-          answer,
-          metadata: {
-            tokenUsage: {
-              promptTokens: Math.floor(params.query.length * 1.5),
-              completionTokens: Math.floor(answer.length * 0.5),
-              totalTokens: Math.floor(params.query.length * 1.5 + answer.length * 0.5),
-            },
+    } catch (error) {
+      console.warn('[BFF] 国联 AI 80B 模型调用失败，使用兜底 mock 回复:', error);
+      const answer = generateMockAssistantReply(params.query);
+      return {
+        conversationId,
+        messageId,
+        answer,
+        metadata: {
+          tokenUsage: {
+            promptTokens: Math.floor(params.query.length * 1.5),
+            completionTokens: Math.floor(answer.length * 0.5),
+            totalTokens: Math.floor(params.query.length * 1.5 + answer.length * 0.5),
           },
-        };
-      }
+        },
+      };
     }
   }
 

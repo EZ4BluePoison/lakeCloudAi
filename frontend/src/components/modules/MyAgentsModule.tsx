@@ -1195,11 +1195,11 @@ export function AddedAgentDetailPanel({
   // Find matching plaza agent for richer data
   const plazaAgent = plazaAgents.find(p => p.id === agent.id);
 
-  // Simulated usage data
-  const todayCalls = Math.floor(Math.random() * 50) + 10;
-  const totalCalls = agent.callCount || Math.floor(Math.random() * 5000) + 1000;
-  const avgResponse = (Math.random() * 2 + 0.5).toFixed(1);
-  const satisfaction = (Math.random() * 1 + 4).toFixed(1);
+  // Simulated usage data (generated once per agent)
+  const [todayCalls] = useState(() => Math.floor(Math.random() * 50) + 10);
+  const [totalCalls] = useState(() => agent.callCount || Math.floor(Math.random() * 5000) + 1000);
+  const [avgResponse] = useState(() => (Math.random() * 2 + 0.5).toFixed(1));
+  const [satisfaction] = useState(() => (Math.random() * 1 + 4).toFixed(1));
 
   // Simulated recent activity
   const recentActivities = [

@@ -8,7 +8,7 @@ interface BehaviorSettingsTabProps {
 }
 
 export function BehaviorSettingsTab({ config, onChange, onDirty }: BehaviorSettingsTabProps) {
-  const updateBehavior = (field: keyof AgentConfig['behavior'], value: any) => {
+  const updateBehavior = (field: keyof AgentConfig['behavior'], value: string | number | boolean) => {
     onChange({
       ...config,
       behavior: { ...config.behavior, [field]: value }
@@ -60,7 +60,7 @@ export function BehaviorSettingsTab({ config, onChange, onDirty }: BehaviorSetti
 
           <div className="pt-2">
             <label className="block text-[13px] font-medium text-[#646A73] mb-2">响应语言</label>
-            <select value={config.behavior.responseLanguage} onChange={(e) => updateBehavior('responseLanguage', e.target.value as any)} className="w-full px-3 py-2 rounded-md border border-[#DEE0E3] text-[13px] text-[#1F2329] focus:outline-none focus:ring-2 focus:ring-[#3370FF]/20 focus:border-[#3370FF] transition-all bg-white">
+            <select value={config.behavior.responseLanguage} onChange={(e) => updateBehavior('responseLanguage', e.target.value as AgentConfig['behavior']['responseLanguage'])} className="w-full px-3 py-2 rounded-md border border-[#DEE0E3] text-[13px] text-[#1F2329] focus:outline-none focus:ring-2 focus:ring-[#3370FF]/20 focus:border-[#3370FF] transition-all bg-white">
               <option value="zh-CN">中文</option>
               <option value="en-US">English</option>
             </select>
@@ -78,7 +78,7 @@ export function BehaviorSettingsTab({ config, onChange, onDirty }: BehaviorSetti
         <div className="space-y-4">
           <div>
             <label className="block text-[13px] font-medium text-[#646A73] mb-2">可见性</label>
-            <select value={config.permissions.visibility} onChange={(e) => onChange({ ...config, permissions: { ...config.permissions, visibility: e.target.value as any } })} className="w-full px-3 py-2 rounded-md border border-[#DEE0E3] text-[13px] text-[#1F2329] focus:outline-none focus:ring-2 focus:ring-[#3370FF]/20 focus:border-[#3370FF] transition-all bg-white">
+            <select value={config.permissions.visibility} onChange={(e) => onChange({ ...config, permissions: { ...config.permissions, visibility: e.target.value as AgentConfig['permissions']['visibility'] } })} className="w-full px-3 py-2 rounded-md border border-[#DEE0E3] text-[13px] text-[#1F2329] focus:outline-none focus:ring-2 focus:ring-[#3370FF]/20 focus:border-[#3370FF] transition-all bg-white">
               <option value="public">公开</option>
               <option value="private">私有</option>
               <option value="department">部门可见</option>
