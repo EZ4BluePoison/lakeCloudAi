@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.lakecloud.ai.mapper.AgentMapper">
+
+    <resultMap id="BaseResultMap" type="com.lakecloud.ai.entity.Agent">
+        <id column="id" property="id"/>
+        <result column="name" property="name"/>
+        <result column="description" property="description"/>
+        <result column="avatar" property="avatar"/>
+        <result column="prompt" property="prompt"/>
+        <result column="created_by" property="createdBy"/>
+        <result column="is_public" property="isPublic"/>
+        <result column="created_at" property="createdAt"/>
+        <result column="updated_at" property="updatedAt"/>
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id, name, description, avatar, prompt, created_by, is_public, created_at, updated_at
+    </sql>
+
+    <select id="findAll" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/> FROM agents
+    </select>
+
+    <select id="findById" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/> FROM agents WHERE id = #{id}
+    </select>
+
+    <select id="findByCreatedBy" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/> FROM agents WHERE created_by = #{createdBy}
+    </select>
+
+    <select id="findPublicAgents" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/> FROM agents WHERE is_public = true
+    </select>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id" keyColumn="id">
+        INSERT INTO agents (name, description, avatar, prompt, created_by, is_public, created_at, updated_at)
+        VALUES (#{name}, #{description}, #{avatar}, #{prompt}, #{createdBy}, #{isPublic}, NOW(), NOW())
+    </insert>
+
+    <update id="update">
+        UPDATE agents
+        SET name = #{name},
+            description = #{description},
+            avatar = #{avatar},
+            prompt = #{prompt},
+            created_by = #{createdBy},
+            is_public = #{isPublic},
+            updated_at = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM agents WHERE id = #{id}
+    </delete>
+
+</mapper>
