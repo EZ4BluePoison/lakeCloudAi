@@ -29,6 +29,9 @@ backend/runtime/
 # Local Spring profile with secrets
 backend/src/main/resources/application-local.yml
 
+# Frontend env files (may contain API keys)
+frontend/.env*
+
 # Local portable JDK / Maven binaries (download via backend/setup-tools.sh)
 backend/tools/
 

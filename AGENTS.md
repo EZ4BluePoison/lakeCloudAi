@@ -62,7 +62,7 @@
 |------|----------|------|
 | 构建工具 | Apache Maven 3.9.9（项目本地便携版） | `backend/pom.xml`、`backend/tools/apache-maven-3.9.9/` |
 | 框架 | Spring Boot 2.7.18 | parent |
-| 语言 | Java 8（项目本地便携版 JDK 1.8.0_492） | `java.version` = `1.8` |
+| 语言 | Java 8（项目本地便携版 JDK 1.8.0_452） | `java.version` = `1.8` |
 | Web | Spring Boot Starter Web | 嵌入 Tomcat，端口 `8080` |
 | ORM | MyBatis Spring Boot Starter 2.3.1 | 配置见 `application.yml` |
 | 数据库 | PostgreSQL | 运行端口 `5433`（Docker 映射自容器内 5432） |
@@ -78,7 +78,9 @@
 - `backend/src/main/resources/db/init.sql`
 - `backend/src/main/resources/mapper/*.xml`
 - `backend/start-backend.sh`
-- `backend/start-db.sh`
+- `backend/start-db.sh`（Docker 方式）
+- `backend/start-local-db.sh`（便携版 PostgreSQL/Redis 方式）
+- `backend/setup-tools.sh`（下载本地 JDK/Maven）
 
 ### 2.3 与 README / 方案声明的差异
 
@@ -167,10 +169,13 @@ frontend/
 backend/
 ├── pom.xml
 ├── start-backend.sh           # 使用本地 JDK/Maven 打包并启动
+├── setup-tools.sh             # 下载本地 JDK/Maven
+├── start-backend.sh           # 使用本地 JDK/Maven 打包并启动
 ├── start-db.sh                # 用 Docker 启动 PostgreSQL + Redis 并初始化
+├── start-local-db.sh          # 用便携版 PostgreSQL/Redis 启动本地依赖
 ├── tools/
 │   ├── apache-maven-3.9.9/    # 便携版 Maven
-│   └── jdk1.8.0_492/          # 便携版 JDK 8
+│   └── jdk1.8.0_452/          # 便携版 JDK 8（通过 setup-tools.sh 下载，已 gitignore）
 └── src/main/
     ├── java/com/lakecloud/ai/
     │   ├── LakeCloudAiApplication.java
@@ -219,12 +224,12 @@ npm run preview
 
 ### 4.2 后端
 
-前置条件：已安装 Docker Desktop（用于 `start-db.sh`）。
+前置条件：已安装 Docker Desktop（用于 `start-db.sh`），或已准备便携版 PostgreSQL/Redis（用于 `start-local-db.sh`）。
 
 ```bash
 # 1. 启动 PostgreSQL 与 Redis（使用 Docker，映射到本地 5433 / 6380）
 cd backend
-./start-db.sh
+./start-local-db.sh
 
 # 2. 使用项目本地 JDK/Maven 打包并启动后端
 cd backend
@@ -233,7 +238,7 @@ cd backend
 
 `start-backend.sh` 逻辑说明：
 
-- 使用 `backend/tools/jdk1.8.0_492` 与 `backend/tools/apache-maven-3.9.9`。
+- 使用 `backend/tools/jdk1.8.0_452` 与 `backend/tools/apache-maven-3.9.9`（目录已加入 `.gitignore`，新环境通过 `setup-tools.sh` 下载）。
 - 若 `target/ai-enterprise-1.0.0.jar` 不存在，先执行 `mvn clean package -DskipTests`。
 - 最后以 `java -jar` 启动，默认 http://localhost:8080。
 
@@ -306,7 +311,7 @@ java -jar target/ai-enterprise-1.0.0.jar
 - **配置**：数据库、Redis、MyBatis、AI 外部服务配置集中在 `application.yml`。
 - **日志**：通过 `logging.level.com.lakecloud.ai: debug` 控制，无独立 `logback-spring.xml`。
 - **脚本**：
-  - `start-db.sh` 使用 Docker 启动依赖服务。
+  - `start-db.sh` 使用 Docker 启动依赖服务；`start-local-db.sh` 使用便携版 PostgreSQL/Redis。
   - `start-backend.sh` 使用项目本地 JDK/Maven，便于无环境依赖部署。
 
 ### 6.3 版本控制

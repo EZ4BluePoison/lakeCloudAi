@@ -10,9 +10,7 @@
 - Vite 7
 - Tailwind CSS 3.4
 - shadcn/ui + Radix UI
-- React Router 7
 - Zustand (状态管理)
-- Axios
 - Framer Motion
 - Lucide React
 
@@ -121,6 +119,25 @@ cp backend/src/main/resources/application-local.yml.example \
 ```
 
 `application-local.yml` 已加入 `.gitignore`，**请勿提交到 Git**。
+
+#### 初始化数据库
+
+如果使用便携版 PostgreSQL，先启动数据库：
+
+```bash
+cd backend
+./start-local-db.sh
+```
+
+然后初始化表结构（首次使用）：
+
+```bash
+PGPASSWORD=postgres ./runtime/pgsql/bin/psql \
+  -h localhost -p 5433 -U postgres -d lakecloud_ai \
+  -f ./src/main/resources/db/init.sql
+```
+
+如果使用系统 PostgreSQL，请自行创建数据库并执行 `backend/src/main/resources/db/init.sql`。
 
 #### 启动后端
 
