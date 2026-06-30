@@ -18,4 +18,6 @@ public class WuxidataProperties {
     private String model;
 
     private Integer timeout = 60000;
+
+    private boolean trustAllSsl = false;
 }

@@ -26,3 +26,6 @@ logs
 # Local runtime data
 backend/runtime/
 
+# Local Spring profile with secrets
+backend/src/main/resources/application-local.yml
+

@@ -42,7 +42,7 @@ public class ChatService {
 
     @PostConstruct
     public void init() {
-        CloseableHttpClient httpClient = SslUtils.createTrustAllHttpClient();
+        CloseableHttpClient httpClient = SslUtils.createHttpClient(wuxidataProperties.isTrustAllSsl());
 
         RequestConfig requestConfig = RequestConfig.custom()
                 .setConnectTimeout(wuxidataProperties.getTimeout())
@@ -114,7 +114,7 @@ public class ChatService {
                         ContentType.APPLICATION_JSON
                 ));
 
-                CloseableHttpClient httpClient = SslUtils.createTrustAllHttpClient();
+                CloseableHttpClient httpClient = SslUtils.createHttpClient(wuxidataProperties.isTrustAllSsl());
                 org.apache.http.client.methods.CloseableHttpResponse response = httpClient.execute(httpPost);
 
                 try (java.io.BufferedReader reader = new java.io.BufferedReader(

@@ -16,10 +16,18 @@ public final class SslUtils {
     }
 
     /**
-     * 创建一个信任所有证书、不做主机名校验的 HttpClient
-     * 仅用于对接内部自签名证书接口，生产环境请替换为正式证书配置
+     * 创建 HttpClient。
+     * 当 trustAll 为 true 时信任所有证书并跳过主机名校验，仅用于本地开发或对接内部自签名证书接口；
+     * 生产环境必须传入 false，使用 JVM 默认信任库进行正常的 TLS 校验。
      */
-    public static CloseableHttpClient createTrustAllHttpClient() {
+    public static CloseableHttpClient createHttpClient(boolean trustAll) {
+        if (trustAll) {
+            return createTrustAllHttpClient();
+        }
+        return HttpClients.custom().build();
+    }
+
+    private static CloseableHttpClient createTrustAllHttpClient() {
         try {
             X509TrustManager trustManager = new X509TrustManager() {
                 @Override

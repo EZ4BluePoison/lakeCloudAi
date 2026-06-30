@@ -27,4 +27,4 @@ echo "启动后端服务..."
 export JAVA_HOME="$JDK_HOME"
 export PATH="$JDK_HOME/bin:$MAVEN_HOME/bin:$PATH"
 cd "$PROJECT_ROOT"
-java -jar "$JAR_FILE"
+java -jar "$JAR_FILE" --spring.profiles.active=local
