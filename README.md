@@ -1,24 +1,27 @@
 # 太湖云 AI 企业智能体
 
-基于 React + Ant Design + Spring Boot + PostgreSQL + Redis 构建的 AI 企业智能体平台。
+基于 React 19 + Vite 7 + shadcn/ui + Tailwind CSS + Spring Boot 2.7 + PostgreSQL + Redis 构建的 AI 企业智能体平台。
 
 ## 技术栈
 
 ### 前端
-- React 18
-- TypeScript
-- Ant Design 5
-- React Router 6
+- React 19
+- TypeScript 5.9
+- Vite 7
+- Tailwind CSS 3.4
+- shadcn/ui + Radix UI
+- React Router 7
 - Zustand (状态管理)
 - Axios
-- Vite
+- Framer Motion
+- Lucide React
 
 ### 后端
-- Java 8
-- Spring Boot 2.7
+- Java 8 (Temurin 1.8.0_452)
+- Spring Boot 2.7.18
 - MyBatis
-- PostgreSQL
-- Redis
+- PostgreSQL 14
+- Redis 5.0
 
 ## 项目结构
 
@@ -27,8 +30,11 @@ lakeCloudAi/
 ├── frontend/                 # 前端项目
 │   ├── src/
 │   │   ├── components/    # 组件
+│   │   ├── data/          # 静态数据与默认配置
+│   │   ├── hooks/         # 自定义 Hooks
+│   │   ├── lib/           # 工具函数
 │   │   ├── pages/         # 页面
-│   │   ├── services/      # API服务
+│   │   ├── services/      # API 服务
 │   │   ├── store/         # 状态管理
 │   │   ├── types/         # 类型定义
 │   │   ├── App.tsx
@@ -52,6 +58,12 @@ lakeCloudAi/
 ```
 
 ## 快速开始
+
+### 前置条件
+
+- Node.js 22+
+- PostgreSQL 14+（或使用 Docker / 便携版）
+- Redis 5.0+（或使用 Docker / 便携版）
 
 ### 前端
 
