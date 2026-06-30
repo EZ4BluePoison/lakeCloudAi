@@ -5,7 +5,7 @@
 set -e
 
 PROJECT_ROOT="$(cd "$(dirname "$0")" && pwd)"
-JDK_HOME="$PROJECT_ROOT/tools/jdk1.8.0_492"
+JDK_HOME="$PROJECT_ROOT/tools/jdk1.8.0_452"
 MAVEN_HOME="$PROJECT_ROOT/tools/apache-maven-3.9.9"
 JAR_FILE="$PROJECT_ROOT/target/ai-enterprise-1.0.0.jar"
 
