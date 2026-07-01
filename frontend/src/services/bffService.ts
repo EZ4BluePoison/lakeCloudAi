@@ -23,8 +23,6 @@ import {
   generateMockAssistantReply,
   mockAgents,
   mockAgentVersions,
-  mockDatasets,
-  mockDocuments,
   mockDocumentChunks,
   mockModelConfigs,
   mockMcpServers,

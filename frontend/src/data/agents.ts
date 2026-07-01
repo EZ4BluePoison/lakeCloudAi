@@ -1,4 +1,4 @@
-import type { Agent, MyAgent, PlazaAgent, AgentStat, DepartmentUsage, DailyUsage, FileNode } from '@/types';
+import type { Agent, MyAgent, PlazaAgent, AgentStat, DepartmentUsage, DailyUsage } from '@/types';
 
 /** Chat agents — used in MessagesModule left panel */
 export const chatAgents: Agent[] = [
@@ -722,43 +722,3 @@ export const knowledgeOrgTree = [
   { id: 'taihu-finance', name: '财务部', level: 1 as const },
 ];
 
-function sampleDataset(id: string, name: string): FileNode[] {
-  return [
-    {
-      id: `${id}-folder`,
-      name: '默认文件夹',
-      type: 'folder' as const,
-      permission: 'group' as const,
-      children: [
-        {
-          id: `${id}-file`,
-          name: `${name} 示例文档.md`,
-          type: 'file' as const,
-          size: '12 KB',
-          modifiedAt: '2026-06-30',
-          permission: 'group' as const,
-          content: `# ${name}
-
-这是 ${name} 的知识库示例文档。`,
-        },
-      ],
-    },
-  ];
-}
-
-export const knowledgeBaseData: Record<string, FileNode[]> = {
-  'taihu-sales': sampleDataset('taihu-sales', '市场销售中心'),
-  'sales-business': sampleDataset('sales-business', '商务组'),
-  'sales-platform': sampleDataset('sales-platform', '平台销售组'),
-  'sales-team1': sampleDataset('sales-team1', '市场销售一组'),
-  'sales-team2': sampleDataset('sales-team2', '市场销售二组'),
-  'sales-solution': sampleDataset('sales-solution', '解决方案组'),
-  'taihu-digital': sampleDataset('taihu-digital', '数智业务部'),
-  'digital-wuxi': sampleDataset('digital-wuxi', '数字国联'),
-  'digital-soe': sampleDataset('digital-soe', '数智国企'),
-  'digital-water': sampleDataset('digital-water', '智慧水务'),
-  'digital-hardware': sampleDataset('digital-hardware', '硬件研发中心'),
-  'digital-ai': sampleDataset('digital-ai', 'AI赋能中心'),
-  'taihu-admin': sampleDataset('taihu-admin', '综合管理部'),
-  'taihu-finance': sampleDataset('taihu-finance', '财务部'),
-};
