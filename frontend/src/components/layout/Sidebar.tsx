@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import {
   MessageSquare, Bot, Store, BookOpen, FolderArchive, FolderOpen, Folder, FolderTree,
-  ChevronDown, ChevronRight, Settings2, Plus, Trash2, Pencil, X, Cloud
+  ChevronDown, ChevronRight, Sparkles, FileText, Plus, Trash2, Pencil, X, Cloud
 } from 'lucide-react';
 import type { NavModule, KnowledgeSubLevel } from '@/types';
 import { knowledgeOrgTree as initialOrgTree, plazaAgents } from '@/data/agents';
@@ -30,7 +30,8 @@ const mainNavItems: NavItem[] = [
   { id: 'messages', label: '消息', icon: MessageSquare },
   { id: 'myAgents', label: '我的智能体', icon: Bot },
   { id: 'agentPlaza', label: '智能体广场', icon: Store, badgeColor: 'bg-[#00B96B]' },
-  { id: 'agentConfig', label: '配置管理', icon: Settings2 },
+  { id: 'createAgent', label: '新建智能体', icon: Sparkles },
+  { id: 'promptRepo', label: '提示词仓库', icon: FileText },
 ];
 
 
