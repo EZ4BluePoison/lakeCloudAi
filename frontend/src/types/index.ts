@@ -1,4 +1,11 @@
-export type NavModule = 'messages' | 'myAgents' | 'agentPlaza' | 'knowledgeBase' | 'superAgent' | 'agentConfig';
+export type NavModule =
+  | 'messages'
+  | 'myAgents'
+  | 'agentPlaza'
+  | 'knowledgeBase'
+  | 'superAgent'
+  | 'createAgent'
+  | 'promptRepo';
 export type KnowledgeSubLevel = string;
 export type PermissionLevel = 'group' | 'dept' | 'personal';
 export type LLMProvider = 'openai' | 'anthropic' | 'azure' | 'ollama' | 'wuxidata' | 'custom';
@@ -235,6 +242,12 @@ export interface MyAgent {
   department: string;
   createdAt: string;
   callCount: number;
+
+  // 运行时配置（新建智能体时生成）
+  provider?: string;
+  model?: string;
+  systemPrompt?: string;
+  knowledgeBaseId?: string;
 }
 
 export interface WorkflowNode {
