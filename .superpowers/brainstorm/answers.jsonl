@@ -1,0 +1,4 @@
+{"question":"prompt-repo-interaction","answer":"B","note":"one-click create with prefilled prompt"}
+{"question":"create-agent-layout","answer":"A","note":"full-screen, hide middle panel"}
+{"question":"knowledge-base-selection","answer":"单选顶层组织","note":"single top-level org from knowledgeOrgTree"}
+{"question":"after-save","answer":"跳转我的智能体","note":"redirect to my agents after save"}
