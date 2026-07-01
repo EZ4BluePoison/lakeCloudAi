@@ -143,9 +143,9 @@ function EditDatasetDialog({ open, dataset, onClose, onSave }: { open: boolean; 
 
 // ===== Lark Wiki-style Tree Item =====
 
-function TreeItem({ node, selectedId, onSelect, onDelete, onDownload }: {
+function TreeItem({ node, selectedId, onSelect, onDownload }: {
   node: FileNode; selectedId: string | null;
-  onSelect: (n: FileNode) => void; onDelete: (n: FileNode) => void; onDownload: (n: FileNode) => void;
+  onSelect: (n: FileNode) => void; onDownload: (n: FileNode) => void;
 }) {
   const isSelected = selectedId === node.id;
   const isFolder = node.type === 'folder';
@@ -175,8 +175,8 @@ function TreeItem({ node, selectedId, onSelect, onDelete, onDownload }: {
           {node.statusText || node.status}
         </span>
       )}
-      <span className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
-        {!isFolder && (
+      {!isFolder && (
+        <span className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
           <button
             onClick={(e) => { e.stopPropagation(); onDownload(node); }}
             className="w-5 h-5 flex items-center justify-center rounded text-[#BBBFC4] hover:text-[#3370FF] hover:bg-[#E8F1FF] transition-all"
@@ -184,15 +184,8 @@ function TreeItem({ node, selectedId, onSelect, onDelete, onDownload }: {
           >
             <Download className="w-3 h-3" />
           </button>
-        )}
-        <button
-          onClick={(e) => { e.stopPropagation(); onDelete(node); }}
-          className="w-5 h-5 flex items-center justify-center rounded text-[#BBBFC4] hover:text-[#F54A45] transition-all"
-          title="删除"
-        >
-          <Trash2 className="w-3 h-3" />
-        </button>
-      </span>
+        </span>
+      )}
     </div>
   );
 }
@@ -250,7 +243,6 @@ export function KnowledgeBaseMiddlePanel({ deptPath, selectedNodeId, onSelectNod
   const [uploadOpen, setUploadOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [deleteDatasetOpen, setDeleteDatasetOpen] = useState(false);
-  const [deleteDocTarget, setDeleteDocTarget] = useState<FileNode | null>(null);
 
   const loadDocuments = useCallback(async () => {
     setLoading(true);
@@ -298,13 +290,6 @@ export function KnowledgeBaseMiddlePanel({ deptPath, selectedNodeId, onSelectNod
     const q = searchQuery.trim().toLowerCase();
     return nodes.filter(n => n.name.toLowerCase().includes(q));
   }, [documents, searchQuery]);
-
-  const handleDeleteDocument = useCallback(async () => {
-    if (!deleteDocTarget?.documentId) return;
-    await bffService.knowledge.deleteDocument(deptPath, deleteDocTarget.documentId);
-    setDeleteDocTarget(null);
-    await loadDocuments();
-  }, [deleteDocTarget, deptPath, loadDocuments]);
 
   const handleDeleteDataset = useCallback(async () => {
     await bffService.knowledge.deleteDataset(deptPath);
@@ -396,7 +381,6 @@ export function KnowledgeBaseMiddlePanel({ deptPath, selectedNodeId, onSelectNod
             node={node}
             selectedId={selectedNodeId}
             onSelect={onSelectNode}
-            onDelete={setDeleteDocTarget}
             onDownload={handleDownload}
           />
         )) : (
@@ -413,7 +397,6 @@ export function KnowledgeBaseMiddlePanel({ deptPath, selectedNodeId, onSelectNod
       <UploadDocumentDialog open={uploadOpen} datasetId={deptPath} onClose={() => setUploadOpen(false)} onUploaded={loadDocuments} />
       <EditDatasetDialog key={datasetInfo?.id || 'new'} open={editOpen} dataset={datasetInfo} onClose={() => setEditOpen(false)} onSave={handleUpdateDataset} />
       <DeleteConfirmDialog open={deleteDatasetOpen} onClose={() => setDeleteDatasetOpen(false)} onConfirm={handleDeleteDataset} itemName={datasetInfo?.name || '当前知识库'} />
-      <DeleteConfirmDialog open={!!deleteDocTarget} onClose={() => setDeleteDocTarget(null)} onConfirm={handleDeleteDocument} itemName={deleteDocTarget?.name || ''} />
     </div>
   );
 }

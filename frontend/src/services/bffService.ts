@@ -5,7 +5,7 @@
  * 后续替换原则：保持接口签名不变，仅把方法体替换为 fetch('/api/v1/...') 调用。
  */
 
-const API_BASE_URL = 'http://localhost:8080';
+const API_BASE_URL = 'http://10.110.10.33:9090';
 
 import { createModelService } from './modelService';
 import { getAgentPrompt } from '@/data/agentPrompts';
@@ -214,11 +214,61 @@ export interface UploadDocumentParams {
   file: File;
 }
 
+function formatBytes(value?: number): string {
+  if (value == null) return '-';
+  if (value < 1024) return `${value} B`;
+  if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KB`;
+  return `${(value / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function toISO(ts?: number): string | undefined {
+  if (ts == null) return undefined;
+  return new Date(ts * 1000).toISOString();
+}
+
+function toBffDataset(raw: unknown): BffDataset {
+  const r = raw as Record<string, unknown>;
+  return {
+    id: r.id as string,
+    name: r.name as string,
+    description: (r.description as string | undefined) || '',
+    documentCount: (r.document_count as number | undefined) ?? 0,
+    createdAt: toISO(r.created_at as number | undefined) || '',
+    updatedAt: toISO(r.updated_at as number | undefined) || '',
+  };
+}
+
+function toBffDocument(raw: unknown): BffDocument {
+  const r = raw as Record<string, unknown>;
+  const detail = (r.data_source_detail_dict as Record<string, unknown> | undefined) || {};
+  const uploadFile = (detail.upload_file as Record<string, unknown> | undefined) || {};
+  return {
+    id: r.id as string,
+    datasetId: (r.dataset_id as string | undefined) || '',
+    name: r.name as string,
+    size: formatBytes(uploadFile.size as number | undefined),
+    status: ((r.indexing_status as string | undefined) || 'pending') as BffDocument['status'],
+    statusText: (r.display_status as string | undefined) || (r.indexing_status as string | undefined) || 'pending',
+    createdAt: toISO(r.created_at as number | undefined) || '',
+    updatedAt: toISO(r.created_at as number | undefined) || '',
+  };
+}
+
+async function unwrap<T>(res: Response): Promise<T> {
+  if (!res.ok) throw new Error(`request failed: ${res.status}`);
+  const json = (await res.json()) as unknown;
+  // list APIs wrap with { data: [...] }; create/update return the object directly
+  if (json && typeof json === 'object' && 'data' in json && !('id' in json)) {
+    return (json as { data: T }).data;
+  }
+  return json as T;
+}
+
 class BffKnowledgeService {
   async listDatasets(): Promise<BffDataset[]> {
-    const res = await fetch(`${API_BASE_URL}/api/console/knowledge/datasets`);
-    if (!res.ok) throw new Error(`listDatasets failed: ${res.status}`);
-    return res.json();
+    const res = await fetch(`${API_BASE_URL}/api/console/knowledge/datasets?limit=1000`);
+    const data = await unwrap<unknown[]>(res);
+    return (data || []).map(item => toBffDataset(item));
   }
 
   async createDataset(payload: { name: string; description?: string }): Promise<BffDataset> {
@@ -227,8 +277,7 @@ class BffKnowledgeService {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
-    if (!res.ok) throw new Error(`createDataset failed: ${res.status}`);
-    return res.json();
+    return toBffDataset(await unwrap<unknown>(res));
   }
 
   async updateDataset(datasetId: string, payload: Partial<BffDataset>): Promise<BffDataset> {
@@ -237,8 +286,7 @@ class BffKnowledgeService {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
-    if (!res.ok) throw new Error(`updateDataset failed: ${res.status}`);
-    return res.json();
+    return toBffDataset(await unwrap<unknown>(res));
   }
 
   async deleteDataset(datasetId: string): Promise<void> {
@@ -249,9 +297,9 @@ class BffKnowledgeService {
   }
 
   async listDocuments(datasetId: string): Promise<BffDocument[]> {
-    const res = await fetch(`${API_BASE_URL}/api/console/knowledge/datasets/${datasetId}/documents`);
-    if (!res.ok) throw new Error(`listDocuments failed: ${res.status}`);
-    return res.json();
+    const res = await fetch(`${API_BASE_URL}/api/console/knowledge/datasets/${datasetId}/documents?limit=1000`);
+    const data = await unwrap<unknown[]>(res);
+    return (data || []).map(item => toBffDocument(item));
   }
 
   async uploadDocument(params: UploadDocumentParams): Promise<BffDocument> {
@@ -261,30 +309,19 @@ class BffKnowledgeService {
       method: 'POST',
       body: formData,
     });
-    if (!res.ok) throw new Error(`uploadDocument failed: ${res.status}`);
-    return res.json();
-  }
-
-  async deleteDocument(datasetId: string, documentId: string): Promise<void> {
-    const res = await fetch(`${API_BASE_URL}/api/console/knowledge/datasets/${datasetId}/documents/${documentId}`, {
-      method: 'DELETE',
-    });
-    if (!res.ok) throw new Error(`deleteDocument failed: ${res.status}`);
-  }
-
-  async updateDocument(datasetId: string, documentId: string, payload: Partial<BffDocument>): Promise<BffDocument> {
-    const res = await fetch(`${API_BASE_URL}/api/console/knowledge/datasets/${datasetId}/documents/${documentId}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-    if (!res.ok) throw new Error(`updateDocument failed: ${res.status}`);
-    return res.json();
+    const json = await unwrap<{ documents?: unknown[] }>(res);
+    const docs = json.documents || [];
+    return toBffDocument(docs[0] ?? json);
   }
 
   async downloadDocument(datasetId: string, documentId: string): Promise<Blob> {
     const res = await fetch(`${API_BASE_URL}/api/console/knowledge/datasets/${datasetId}/documents/${documentId}/download`);
     if (!res.ok) throw new Error(`downloadDocument failed: ${res.status}`);
+    const contentType = res.headers.get('content-type') || '';
+    if (contentType.includes('application/json')) {
+      const text = await res.text();
+      throw new Error(`downloadDocument failed: ${text}`);
+    }
     return res.blob();
   }
 
