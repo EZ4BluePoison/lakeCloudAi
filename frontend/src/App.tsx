@@ -17,7 +17,7 @@ import type { NavModule, KnowledgeSubLevel, FileNode, MyAgent } from '@/types';
 
 export default function App() {
   // Module state
-  const [activeModule, setActiveModule] = useState<NavModule>('messages');
+  const [activeModule, setActiveModule] = useState<NavModule>('superAgent');
   const [activeKnowledgeSub, setActiveKnowledgeSub] = useState<KnowledgeSubLevel>('group');
   const [, setConfigAgentId] = useState<string | null>(null);
 
@@ -35,8 +35,8 @@ export default function App() {
   const [selectedFileNode, setSelectedFileNode] = useState<FileNode | null>(null);
 
   // Sidebar & middle panel collapse state
-  // 默认进入消息/智能体对话时，第一栏和历史记录收起，第二栏保持展开
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true);
+  // 默认进入超级助手页面，第一栏展开
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMiddleCollapsed, setIsMiddleCollapsed] = useState(false);
 
   // Check if plaza or superAgent is active (collapses middle panel)
