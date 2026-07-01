@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import {
   MessageSquare, Bot, Store, BookOpen, FolderArchive, FolderOpen, Folder, FolderTree,
-  ChevronDown, ChevronRight, Sparkles, FileText, Plus, Trash2, Pencil, X, Cloud
+  ChevronDown, ChevronRight, Sparkles, FileText, Settings2, Plus, Trash2, Pencil, X, Cloud
 } from 'lucide-react';
 import type { NavModule, KnowledgeSubLevel } from '@/types';
 import { knowledgeOrgTree as initialOrgTree, plazaAgents } from '@/data/agents';
