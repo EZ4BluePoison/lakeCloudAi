@@ -35,3 +35,6 @@ frontend/.env*
 # Local portable JDK / Maven binaries (download via backend/setup-tools.sh)
 backend/tools/
 
+# Brainstorming session artifacts
+.superpowers/
+
