@@ -5,17 +5,13 @@ import Sidebar from '@/components/layout/Sidebar';
 import { MessagesMiddlePanel, MessagesRightPanel } from '@/components/modules/MessagesModule';
 import {
   MyAgentsListPanel,
-  AddedAgentDetailPanel,
-  WorkbenchMiddlePanel,
-  StatsDashboard,
-  WorkflowEditor,
-  DeleteAgentDialog
+  AddedAgentDetailPanel
 } from '@/components/modules/MyAgentsModule';
 import AgentPlazaModule from '@/components/modules/AgentPlazaModule';
 import SuperAgentModule from '@/components/modules/SuperAgentModule';
 import { KnowledgeBaseMiddlePanel, KnowledgeBaseRightPanel } from '@/components/modules/KnowledgeBaseModule';
 import AgentConfigManager from '@/components/modules/AgentConfigManager';
-import { myAgents as defaultMyAgents } from '@/data/agents';
+
 import type { NavModule, KnowledgeSubLevel, FileNode, MyAgent } from '@/types';
 
 
@@ -31,13 +27,6 @@ export default function App() {
   // ========== My Agents — 显示从 plaza 添加使用的智能体 ==========
   const [addedAgents, setAddedAgents] = useState<MyAgent[]>([]);
   const [selectedAddedAgentId, setSelectedAddedAgentId] = useState<string | null>(null);
-
-  // ========== Workbench — 创建自己的智能体 ==========
-  const [agents, setAgents] = useState<MyAgent[]>(defaultMyAgents);
-  const [selectedWorkbenchAgentId, setSelectedWorkbenchAgentId] = useState<string | null>(null);
-  const [workbenchView, setWorkbenchView] = useState<'list' | 'stats' | 'workflow'>('list');
-  const [wbDeleteDialogOpen, setWbDeleteDialogOpen] = useState(false);
-  const [wbAgentToDelete, setWbAgentToDelete] = useState<string | null>(null);
 
   // Favorites state (global)
   const [favorites, setFavorites] = useState<string[]>([]);
@@ -61,8 +50,6 @@ export default function App() {
       setIsMiddleCollapsed(false);
     }
     // Reset sub-views when switching modules
-    setWorkbenchView('list');
-    setSelectedWorkbenchAgentId(null);
     setSelectedFileNode(null);
   }, []);
 
@@ -77,42 +64,6 @@ export default function App() {
     setActiveModule('knowledgeBase');
     setSelectedFileNode(null);
   }, []);
-
-  // ========== Workbench handlers ==========
-  const handleViewStats = useCallback((id: string) => {
-    setSelectedWorkbenchAgentId(id);
-    setWorkbenchView('stats');
-  }, []);
-
-  const handleEditWorkflow = useCallback((id: string) => {
-    setSelectedWorkbenchAgentId(id);
-    setWorkbenchView('workflow');
-  }, []);
-
-  const handleDeleteAgent = useCallback((id: string) => {
-    setWbAgentToDelete(id);
-    setWbDeleteDialogOpen(true);
-  }, []);
-
-  const handleBackToList = useCallback(() => {
-    setWorkbenchView('list');
-    setSelectedWorkbenchAgentId(null);
-  }, []);
-
-  const handleCreateAgent = useCallback((agent: MyAgent) => {
-    setAgents(prev => [agent, ...prev]);
-    setSelectedWorkbenchAgentId(agent.id);
-    setWorkbenchView('workflow');
-  }, []);
-
-  const handleConfirmDelete = useCallback(() => {
-    if (wbAgentToDelete) {
-      setAgents(prev => prev.filter(a => a.id !== wbAgentToDelete));
-    }
-    setWbDeleteDialogOpen(false);
-    setWbAgentToDelete(null);
-    setWorkbenchView('list');
-  }, [wbAgentToDelete]);
 
   // ========== Add agent from plaza to my agents ==========
   const handleAddAgent = useCallback((agent: MyAgent) => {
@@ -203,19 +154,6 @@ export default function App() {
                       setActiveModule('messages');
                     }}
                     onGoToPlaza={() => setActiveModule('agentPlaza')}
-                  />
-                )}
-
-                {/* ========== Workbench — 创建自己的智能体 ========== */}
-                {activeModule === 'workbench' && (
-                  <WorkbenchMiddlePanel
-                    agents={agents}
-                    selectedAgentId={selectedWorkbenchAgentId}
-                    onSelectAgent={setSelectedWorkbenchAgentId}
-                    onViewStats={handleViewStats}
-                    onEditWorkflow={handleEditWorkflow}
-                    onDeleteAgent={handleDeleteAgent}
-                    onCreateAgent={handleCreateAgent}
                   />
                 )}
 
@@ -320,52 +258,6 @@ export default function App() {
             );
           })()}
 
-          {/* Workbench Right — stats / workflow */}
-          {activeModule === 'workbench' && workbenchView === 'list' && (
-            <motion.div
-              key="workbench-list"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              className="flex-1 flex flex-col items-center justify-center"
-            >
-              <div className="flex flex-col items-center text-center">
-                <div className="w-16 h-16 rounded-2xl bg-[#F2F3F5] flex items-center justify-center mb-4">
-                  <WrenchIcon className="w-8 h-8 text-[#DEE0E3]" />
-                </div>
-                <h3 className="text-[16px] font-medium text-[#8F959E] mb-2">选择一个智能体进行管理</h3>
-                <p className="text-[13px] text-[#BBBFC4]">在工作台中创建和编排您自己的智能体</p>
-              </div>
-            </motion.div>
-          )}
-
-          {activeModule === 'workbench' && workbenchView === 'stats' && selectedWorkbenchAgentId && (
-            <motion.div
-              key="workbench-stats"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              className="flex-1 flex flex-col"
-            >
-              <StatsDashboard agentId={selectedWorkbenchAgentId} agents={agents} onBack={handleBackToList} />
-            </motion.div>
-          )}
-
-          {activeModule === 'workbench' && workbenchView === 'workflow' && selectedWorkbenchAgentId && (
-            <motion.div
-              key="workbench-workflow"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              className="flex-1 flex flex-col"
-            >
-              <WorkflowEditor agentId={selectedWorkbenchAgentId} agents={agents} onBack={handleBackToList} />
-            </motion.div>
-          )}
-
           {/* Agent Plaza */}
           {activeModule === 'agentPlaza' && (
             <motion.div
@@ -415,17 +307,6 @@ export default function App() {
         </AnimatePresence>
       </section>
 
-      {/* Workbench Delete Dialog */}
-      {wbAgentToDelete && (
-        <DeleteAgentDialog
-          agentId={wbAgentToDelete}
-          agents={agents}
-          open={wbDeleteDialogOpen}
-          onClose={() => { setWbDeleteDialogOpen(false); setWbAgentToDelete(null); }}
-          onConfirm={handleConfirmDelete}
-        />
-      )}
-
       {/* Floating 3D Cloud Logo Button — bottom right */}
       {activeModule !== 'superAgent' && (
         <button
@@ -460,10 +341,3 @@ function BotIcon({ className }: { className?: string }) {
   );
 }
 
-function WrenchIcon({ className }: { className?: string }) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
-    </svg>
-  );
-}

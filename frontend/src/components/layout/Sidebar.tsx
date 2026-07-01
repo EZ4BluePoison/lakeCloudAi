@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import {
-  MessageSquare, Bot, Wrench, Store, BookOpen, FolderArchive, FolderOpen, Folder, FolderTree,
+  MessageSquare, Bot, Store, BookOpen, FolderArchive, FolderOpen, Folder, FolderTree,
   ChevronDown, ChevronRight, Settings2, Plus, Trash2, Pencil, X, Cloud
 } from 'lucide-react';
 import type { NavModule, KnowledgeSubLevel } from '@/types';
@@ -33,7 +33,7 @@ const mainNavItems: NavItem[] = [
   { id: 'agentConfig', label: '配置管理', icon: Settings2 },
 ];
 
-const workbenchItem: NavItem = { id: 'workbench', label: '工作台', icon: Wrench };
+
 
 interface OrgNode {
   id: string;
@@ -582,24 +582,6 @@ export default function Sidebar({ activeModule, activeKnowledgeSub, onModuleChan
           )}
         </div>
 
-        {/* Workbench — at the bottom */}
-        {(() => {
-          const wb = workbenchItem;
-          const isWbActive = activeModule === 'workbench';
-          return (
-            <button
-              onClick={() => onModuleChange('workbench')}
-              className={`
-                flex items-center rounded-lg text-sm font-medium transition-all duration-150 w-full
-                ${collapsed ? 'justify-center px-2 py-2' : 'gap-2.5 px-3 py-2'}
-                ${isWbActive ? 'bg-[#E8F1FF] text-[#3370FF]' : 'text-[#646A73] hover:bg-[#EBEBEB] hover:text-[#1F2329]'}
-              `}
-            >
-              <wb.icon className="w-[18px] h-[18px] flex-shrink-0" />
-              {!collapsed && <span className="flex-1 text-left">{wb.label}</span>}
-            </button>
-          );
-        })()}
       </nav>
 
       {/* User Footer */}

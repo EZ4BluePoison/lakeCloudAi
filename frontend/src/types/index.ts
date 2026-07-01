@@ -1,4 +1,4 @@
-export type NavModule = 'messages' | 'myAgents' | 'workbench' | 'agentPlaza' | 'knowledgeBase' | 'superAgent' | 'agentConfig';
+export type NavModule = 'messages' | 'myAgents' | 'agentPlaza' | 'knowledgeBase' | 'superAgent' | 'agentConfig';
 export type KnowledgeSubLevel = string;
 export type PermissionLevel = 'group' | 'dept' | 'personal';
 export type LLMProvider = 'openai' | 'anthropic' | 'azure' | 'ollama' | 'wuxidata' | 'custom';
