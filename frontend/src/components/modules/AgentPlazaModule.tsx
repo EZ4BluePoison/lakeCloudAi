@@ -3,7 +3,7 @@ import {
   Search, Star, Download, X, Plus, PenTool, PieChart, Code2, Scale, StickyNote, Users, Presentation, BookOpen,
   Check, Bot, ScanEye, Receipt, CalendarDays, UserPlus, GraduationCap, FileBarChart, TrendingUp,
   MonitorCog, Headphones, FolderKanban, Flame, Sparkles,
-  CheckSquare, Sunrise, UtensilsCrossed, Home, Database, Shield, Wrench, Settings2,
+  CheckSquare, Sunrise, UtensilsCrossed, Home, Database, Shield, Wrench,
   FileText, ClipboardCheck, ListTodo
 } from 'lucide-react';
 import { sceneCategories, plazaAgents } from '@/data/agents';
@@ -19,7 +19,6 @@ interface AgentPlazaModuleProps {
   favorites: string[];
   onToggleFavorite: (agentId: string) => void;
   onAddAgent: (agent: MyAgent) => void;
-  onConfigAgent?: (agentId: string) => void;
 }
 
 /** Convert PlazaAgent to MyAgent */
@@ -38,7 +37,7 @@ function plazaToMyAgent(p: PlazaAgent): MyAgent {
   };
 }
 
-export default function AgentPlazaModule({ favorites, onToggleFavorite, onAddAgent, onConfigAgent }: AgentPlazaModuleProps) {
+export default function AgentPlazaModule({ favorites, onToggleFavorite, onAddAgent }: AgentPlazaModuleProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState('全部');
   const [selectedAgent, setSelectedAgent] = useState<PlazaAgent | null>(null);
@@ -168,16 +167,6 @@ export default function AgentPlazaModule({ favorites, onToggleFavorite, onAddAge
                   <Star className={`w-4 h-4 ${isFav ? 'fill-[#FF7D00]' : ''}`} />
                 </button>
                 
-                {/* Config button on card - for knowledge assistant */}
-                {agent.id === 'plaza-1' && onConfigAgent && (
-                  <button
-                    onClick={(e) => { e.stopPropagation(); onConfigAgent(agent.id); }}
-                    className="absolute top-3 right-12 w-7 h-7 flex items-center justify-center rounded-full transition-all z-10 text-[#646A73] bg-[#F2F3F5] opacity-0 group-hover:opacity-100 hover:text-[#3370FF] hover:bg-[#E8F1FF]"
-                    title="配置智能体"
-                  >
-                    <Settings2 className="w-4 h-4" />
-                  </button>
-                )}
 
                 <div className="flex items-start gap-3 mb-3">
                   <div
@@ -253,16 +242,6 @@ export default function AgentPlazaModule({ favorites, onToggleFavorite, onAddAge
               >
                 <Plus className="w-4 h-4" />添加使用
               </button>
-              {/* Config button */}
-              {selectedAgent.id === 'plaza-1' && onConfigAgent && (
-                <button
-                  onClick={() => onConfigAgent(selectedAgent.id)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[13px] font-medium text-[#3370FF] bg-[#E8F1FF] hover:bg-[#D0E0FF] transition-colors"
-                >
-                  <Settings2 className="w-4 h-4" />配置
-                </button>
-              )}
-              
               {/* Favorite button in detail header */}
               <button
                 onClick={() => onToggleFavorite(selectedAgent.id)}

@@ -10,7 +10,8 @@ import {
 import AgentPlazaModule from '@/components/modules/AgentPlazaModule';
 import SuperAgentModule from '@/components/modules/SuperAgentModule';
 import { KnowledgeBaseMiddlePanel, KnowledgeBaseRightPanel } from '@/components/modules/KnowledgeBaseModule';
-import AgentConfigManager from '@/components/modules/AgentConfigManager';
+import { CreateAgentModule } from '@/components/modules/CreateAgentModule';
+import { PromptRepoModule } from '@/components/modules/PromptRepoModule';
 
 import type { NavModule, KnowledgeSubLevel, FileNode, MyAgent } from '@/types';
 
@@ -19,7 +20,9 @@ export default function App() {
   // Module state
   const [activeModule, setActiveModule] = useState<NavModule>('superAgent');
   const [activeKnowledgeSub, setActiveKnowledgeSub] = useState<KnowledgeSubLevel>('group');
-  const [, setConfigAgentId] = useState<string | null>(null);
+
+  // Create agent pending prompt from prompt repo
+  const [pendingPrompt, setPendingPrompt] = useState('');
 
   // Messages module state
   const [selectedChatAgentId, setSelectedChatAgentId] = useState('plaza-1');
@@ -39,8 +42,12 @@ export default function App() {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMiddleCollapsed, setIsMiddleCollapsed] = useState(false);
 
-  // Check if plaza or superAgent is active (collapses middle panel)
-  const isPlazaActive = activeModule === 'agentPlaza' || activeModule === 'superAgent';
+  // Modules that should hide the middle panel
+  const isPlazaActive =
+    activeModule === 'agentPlaza' ||
+    activeModule === 'superAgent' ||
+    activeModule === 'createAgent' ||
+    activeModule === 'promptRepo';
 
   const handleModuleChange = useCallback((module: NavModule) => {
     setActiveModule(module);
@@ -84,9 +91,18 @@ export default function App() {
     });
   }, []);
 
-  const handleConfigAgent = useCallback((agentId: string) => {
-    setConfigAgentId(agentId);
-    setActiveModule('agentConfig');
+  const handleUsePromptTemplate = useCallback((prompt: string) => {
+    setPendingPrompt(prompt);
+    setActiveModule('createAgent');
+  }, []);
+
+  const handleSaveAgent = useCallback((agent: MyAgent) => {
+    setAddedAgents(prev => {
+      if (prev.find(a => a.id === agent.id)) return prev;
+      return [agent, ...prev];
+    });
+    setPendingPrompt('');
+    setActiveModule('myAgents');
   }, []);
 
   return (
@@ -178,21 +194,40 @@ export default function App() {
       {/* Right Panel */}
       <section className="flex-1 flex flex-col bg-[#F5F6F7] min-w-0 overflow-hidden">
         <AnimatePresence mode="wait">
-          {/* Agent Config Manager */}
-          {activeModule === 'agentConfig' && (
+          {/* Create Agent */}
+          {activeModule === 'createAgent' && (
             <motion.div
-              key="agent-config"
+              key="create-agent"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.2 }}
               className="flex-1 flex flex-col min-h-0"
             >
-              <AgentConfigManager 
+              <CreateAgentModule
+                initialPrompt={pendingPrompt}
                 onBack={() => {
-                  setConfigAgentId(null);
+                  setPendingPrompt('');
                   setActiveModule('agentPlaza');
-                }} 
+                }}
+                onSave={handleSaveAgent}
+              />
+            </motion.div>
+          )}
+
+          {/* Prompt Repository */}
+          {activeModule === 'promptRepo' && (
+            <motion.div
+              key="prompt-repo"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="flex-1 flex flex-col min-h-0"
+            >
+              <PromptRepoModule
+                onBack={() => setActiveModule('agentPlaza')}
+                onUseTemplate={handleUsePromptTemplate}
               />
             </motion.div>
           )}
@@ -272,7 +307,6 @@ export default function App() {
                 favorites={favorites}
                 onToggleFavorite={toggleFavorite}
                 onAddAgent={handleAddAgent}
-                onConfigAgent={handleConfigAgent}
               />
             </motion.div>
           )}
