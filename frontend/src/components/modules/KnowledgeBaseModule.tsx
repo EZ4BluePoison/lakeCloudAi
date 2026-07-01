@@ -4,40 +4,11 @@ import {
   Pencil, Search, MoreHorizontal, Beaker, Download
 } from 'lucide-react';
 import type { FileNode } from '@/types';
-import { knowledgeOrgTree } from '@/data/agents';
 import { bffService, type BffDataset, type BffDocument } from '@/services/bffService';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-
-interface OrgNode { id: string; name: string; level: number; children?: OrgNode[]; }
-
-interface PathInfo {
-  segments: string[];
-}
-
-/** Resolve a dept id to its ancestor path segments */
-function resolvePath(deptId: string): PathInfo | null {
-  function walk(node: OrgNode, parentNames: string[]): PathInfo | null {
-    const currentNames = [...parentNames, node.name];
-    if (node.id === deptId) {
-      return { segments: currentNames };
-    }
-    if (node.children) {
-      for (const child of node.children) {
-        const r = walk(child, currentNames);
-        if (r) return r;
-      }
-    }
-    return null;
-  }
-  for (const root of knowledgeOrgTree as OrgNode[]) {
-    const r = walk(root, []);
-    if (r) return r;
-  }
-  return null;
-}
 
 function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -228,7 +199,7 @@ function TreeItem({ node, selectedId, onSelect, onDelete, onDownload }: {
 
 // ===== File Preview =====
 
-function FilePreview({ file, path, content }: { file: FileNode; path: ReturnType<typeof resolvePath>; content: string }) {
+function FilePreview({ file, datasetName, content }: { file: FileNode; datasetName: string; content: string }) {
   const renderContent = (text: string) => {
     const lines = text.split('\n');
     const elements: React.ReactNode[] = [];
@@ -257,17 +228,11 @@ function FilePreview({ file, path, content }: { file: FileNode; path: ReturnType
 
   return (
     <div className="max-w-[800px] mx-auto">
-      {path && (
-        <div className="flex items-center gap-1.5 text-[11px] text-[#BBBFC4] mb-6 flex-wrap">
-          {path.segments.map((seg, idx) => (
-            <span key={idx} className="flex items-center gap-1.5">
-              <span className={idx === path.segments.length - 1 ? 'text-[#1F2329]' : ''}>{seg}</span>
-              {idx < path.segments.length - 1 && <ChevronRight className="w-2.5 h-2.5" />}
-            </span>
-          ))}
-          <ChevronRight className="w-2.5 h-2.5" /><span className="text-[#3370FF] font-medium">{file.name}</span>
-        </div>
-      )}
+      <div className="flex items-center gap-1.5 text-[11px] text-[#BBBFC4] mb-6 flex-wrap">
+        <span>{datasetName}</span>
+        <ChevronRight className="w-2.5 h-2.5" />
+        <span className="text-[#3370FF] font-medium">{file.name}</span>
+      </div>
       <div className="bg-white rounded-xl p-8 border border-[#DEE0E3] shadow-sm">{renderContent(content)}</div>
     </div>
   );
@@ -287,8 +252,6 @@ export function KnowledgeBaseMiddlePanel({ deptPath, selectedNodeId, onSelectNod
   const [deleteDatasetOpen, setDeleteDatasetOpen] = useState(false);
   const [deleteDocTarget, setDeleteDocTarget] = useState<FileNode | null>(null);
 
-  const pathInfo = resolvePath(deptPath);
-
   const loadDocuments = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -299,7 +262,7 @@ export function KnowledgeBaseMiddlePanel({ deptPath, selectedNodeId, onSelectNod
       const maybe404 = err instanceof Error && err.message.includes('404');
       if (maybe404) {
         try {
-          const name = pathInfo?.segments.at(-1) || deptPath;
+          const name = datasetInfo?.name || deptPath;
           const created = await bffService.knowledge.createDataset({ name, description: '' });
           setDatasetInfo(created);
           const docs = await bffService.knowledge.listDocuments(deptPath);
@@ -313,7 +276,7 @@ export function KnowledgeBaseMiddlePanel({ deptPath, selectedNodeId, onSelectNod
     } finally {
       setLoading(false);
     }
-  }, [deptPath, pathInfo]);
+  }, [deptPath, datasetInfo?.name]);
 
   const loadDatasetInfo = useCallback(async () => {
     try {
@@ -373,8 +336,8 @@ export function KnowledgeBaseMiddlePanel({ deptPath, selectedNodeId, onSelectNod
       <div className="bg-[#F5F6F7] flex-shrink-0">
         <div className="flex items-center justify-between px-3 pt-3 pb-2">
           <div className="flex items-center gap-1.5 min-w-0">
-            {pathInfo ? (
-              <h2 className="text-[14px] font-semibold text-[#1F2329] truncate">{pathInfo.segments[pathInfo.segments.length - 1]}</h2>
+            {datasetInfo ? (
+              <h2 className="text-[14px] font-semibold text-[#1F2329] truncate">{datasetInfo.name}</h2>
             ) : (
               <h2 className="text-[14px] font-semibold text-[#1F2329]">知识库</h2>
             )}
@@ -515,8 +478,14 @@ function RetrievalTestPanel({ datasetId }: { datasetId: string }) {
 // ===== Feishu-style Right Panel =====
 
 export function KnowledgeBaseRightPanel({ file, deptPath }: { file: FileNode | null; deptPath: string }) {
-  const pathInfo = resolvePath(deptPath);
+  const [datasetInfo, setDatasetInfo] = useState<BffDataset | null>(null);
   const [content, setContent] = useState('# 暂无内容\n\n该文件暂无预览内容。');
+
+  useEffect(() => {
+    bffService.knowledge.listDatasets()
+      .then(list => setDatasetInfo(list.find(d => d.id === deptPath) || null))
+      .catch(() => setDatasetInfo(null));
+  }, [deptPath]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -580,7 +549,7 @@ export function KnowledgeBaseRightPanel({ file, deptPath }: { file: FileNode | n
             <div className="w-8 h-8 border-2 border-[#3370FF] border-t-transparent rounded-full animate-spin" />
           </div>
         ) : (
-          <FilePreview file={file} path={pathInfo} content={content} />
+          <FilePreview file={file} datasetName={datasetInfo?.name || deptPath} content={content} />
         )}
         <RetrievalTestPanel datasetId={deptPath} />
       </div>

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ArrowLeft, Save, Sparkles, Bot, Database } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -12,7 +12,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { availableLLMs } from '@/data/agentConfigs';
-import { knowledgeOrgTree } from '@/data/agents';
+import { bffService, type BffDataset } from '@/services/bffService';
 import type { MyAgent } from '@/types';
 
 export interface CreateAgentForm {
@@ -31,17 +31,27 @@ export interface CreateAgentModuleProps {
 }
 
 export function CreateAgentModule({ initialPrompt = '', onBack, onSave }: CreateAgentModuleProps) {
+  const [datasets, setDatasets] = useState<BffDataset[]>([]);
   const [form, setForm] = useState<CreateAgentForm>({
     name: '',
     description: '',
     prompt: initialPrompt,
     provider: availableLLMs[0].provider,
     model: availableLLMs[0].models[0],
-    knowledgeBaseId: knowledgeOrgTree[0]?.id ?? '',
+    knowledgeBaseId: '',
   });
 
   const [errors, setErrors] = useState<Partial<Record<keyof CreateAgentForm, string>>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    bffService.knowledge.listDatasets()
+      .then(list => {
+        setDatasets(list);
+        if (list[0]) setForm(prev => ({ ...prev, knowledgeBaseId: list[0].id }));
+      })
+      .catch(() => setDatasets([]));
+  }, []);
 
   const selectedProvider = availableLLMs.find(p => p.provider === form.provider) ?? availableLLMs[0];
 
@@ -213,9 +223,9 @@ export function CreateAgentModule({ initialPrompt = '', onBack, onSave }: Create
                 <SelectValue placeholder="选择知识库" />
               </SelectTrigger>
               <SelectContent>
-                {knowledgeOrgTree.map(org => (
-                  <SelectItem key={org.id} value={org.id}>
-                    {org.name}
+                {datasets.map(ds => (
+                  <SelectItem key={ds.id} value={ds.id}>
+                    {ds.name}
                   </SelectItem>
                 ))}
               </SelectContent>

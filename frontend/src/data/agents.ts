@@ -689,36 +689,3 @@ export const dailyUsage: DailyUsage[] = [
 export const sceneCategories = [
   '全部', '行政类', '财务类', '商务类', '管控类', '运营类', '市政类', '金融类', '客服类'
 ];
-
-/** 太湖云公司 2026 年组织架构（知识库目录）
- * 按图中部门层级维护，不显示人名。
- */
-export const knowledgeOrgTree = [
-  {
-    id: 'taihu-sales',
-    name: '市场销售中心',
-    level: 1 as const,
-    children: [
-      { id: 'sales-business', name: '商务组', level: 2 as const },
-      { id: 'sales-platform', name: '平台销售组', level: 2 as const },
-      { id: 'sales-team1', name: '市场销售一组', level: 2 as const },
-      { id: 'sales-team2', name: '市场销售二组', level: 2 as const },
-      { id: 'sales-solution', name: '解决方案组', level: 2 as const },
-    ]
-  },
-  {
-    id: 'taihu-digital',
-    name: '数智业务部',
-    level: 1 as const,
-    children: [
-      { id: 'digital-wuxi', name: '数字国联', level: 2 as const },
-      { id: 'digital-soe', name: '数智国企', level: 2 as const },
-      { id: 'digital-water', name: '智慧水务', level: 2 as const },
-      { id: 'digital-hardware', name: '硬件研发中心', level: 2 as const },
-      { id: 'digital-ai', name: 'AI赋能中心', level: 2 as const },
-    ]
-  },
-  { id: 'taihu-admin', name: '综合管理部', level: 1 as const },
-  { id: 'taihu-finance', name: '财务部', level: 1 as const },
-];
-
