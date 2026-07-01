@@ -13,19 +13,29 @@ import { Button } from '@/components/ui/button';
 
 interface OrgNode { id: string; name: string; level: number; children?: OrgNode[]; }
 
-/** Resolve a dept id to its full four-level path */
-function resolvePath(deptId: string) {
-  function walk(node: OrgNode, parentNames: string[]): { group: string; subGroup: string; company: string; department: string } | null {
+interface PathInfo {
+  segments: string[];
+}
+
+/** Resolve a dept id to its ancestor path segments */
+function resolvePath(deptId: string): PathInfo | null {
+  function walk(node: OrgNode, parentNames: string[]): PathInfo | null {
     const currentNames = [...parentNames, node.name];
-    if (node.level === 4 && node.id === deptId && currentNames.length === 4) {
-      return { group: currentNames[0], subGroup: currentNames[1], company: currentNames[2], department: currentNames[3] };
+    if (node.id === deptId) {
+      return { segments: currentNames };
     }
     if (node.children) {
-      for (const child of node.children) { const r = walk(child, currentNames); if (r) return r; }
+      for (const child of node.children) {
+        const r = walk(child, currentNames);
+        if (r) return r;
+      }
     }
     return null;
   }
-  for (const root of knowledgeOrgTree as OrgNode[]) { const r = walk(root, []); if (r) return r; }
+  for (const root of knowledgeOrgTree as OrgNode[]) {
+    const r = walk(root, []);
+    if (r) return r;
+  }
   return null;
 }
 
@@ -439,8 +449,12 @@ function FilePreview({ file, path }: { file: FileNode; path: ReturnType<typeof r
     <div className="max-w-[800px] mx-auto">
       {path && (
         <div className="flex items-center gap-1.5 text-[11px] text-[#BBBFC4] mb-6 flex-wrap">
-          <span>{path.group}</span><ChevronRight className="w-2.5 h-2.5" /><span className="text-[#8F959E]">{path.subGroup}</span><ChevronRight className="w-2.5 h-2.5" />
-          <span className="text-[#646A73]">{path.company}</span><ChevronRight className="w-2.5 h-2.5" /><span className="text-[#1F2329]">{path.department}</span>
+          {path.segments.map((seg, idx) => (
+            <span key={idx} className="flex items-center gap-1.5">
+              <span className={idx === path.segments.length - 1 ? 'text-[#1F2329]' : ''}>{seg}</span>
+              {idx < path.segments.length - 1 && <ChevronRight className="w-2.5 h-2.5" />}
+            </span>
+          ))}
           <ChevronRight className="w-2.5 h-2.5" /><span className="text-[#3370FF] font-medium">{file.name}</span>
         </div>
       )}
@@ -587,7 +601,7 @@ export function KnowledgeBaseMiddlePanel({ deptPath, selectedNodeId, onSelectNod
         <div className="flex items-center justify-between px-3 pt-3 pb-2">
           <div className="flex items-center gap-1.5 min-w-0">
             {pathInfo ? (
-              <h2 className="text-[14px] font-semibold text-[#1F2329] truncate">{pathInfo.department}</h2>
+              <h2 className="text-[14px] font-semibold text-[#1F2329] truncate">{pathInfo.segments[pathInfo.segments.length - 1]}</h2>
             ) : (
               <h2 className="text-[14px] font-semibold text-[#1F2329]">知识库</h2>
             )}

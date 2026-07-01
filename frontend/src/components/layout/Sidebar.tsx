@@ -60,9 +60,9 @@ function OrgTreeNode({
   depth?: number;
 }) {
   const isExpanded = expandedIds.has(node.id);
-  const isActive = activeDeptId === node.id && node.level === 4;
   const hasChildren = node.children && node.children.length > 0;
-  const isLeaf = node.level === 4;
+  const isLeaf = !hasChildren;
+  const isActive = activeDeptId === node.id && isLeaf;
 
   // Level-based folder icon
   const levelIcon = () => {

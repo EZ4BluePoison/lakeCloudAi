@@ -690,504 +690,75 @@ export const sceneCategories = [
   '全部', '行政类', '财务类', '商务类', '管控类', '运营类', '市政类', '金融类', '客服类'
 ];
 
-/** SOE four-level org tree: Group > Governance > Departments > Units */
+/** 太湖云公司 2026 年组织架构（知识库目录）
+ * 按图中部门层级维护，不显示人名。
+ */
 export const knowledgeOrgTree = [
   {
-    id: 'gl-group',
-    name: '国联集团',
+    id: 'taihu-sales',
+    name: '市场销售中心',
     level: 1 as const,
     children: [
-      {
-        id: 'level-zhili',
-        name: '治理层（决策与监督核心）',
-        level: 2 as const,
-        children: [
-          {
-            id: 'dangwei',
-            name: '党委（党组）',
-            level: 3 as const,
-            children: [
-              { id: 'dw-changwei', name: '党委常委会', level: 4 as const },
-              { id: 'dw-quanwei', name: '党委全委会', level: 4 as const },
-              { id: 'dw-dangjian', name: '党建工作领导小组', level: 4 as const },
-            ]
-          },
-          {
-            id: 'dongshihui',
-            name: '董事会',
-            level: 3 as const,
-            children: [
-              { id: 'ds-dongshizhang', name: '董事长办公室', level: 4 as const },
-              { id: 'ds-neibu', name: '内部董事（总经理、职工董事）', level: 4 as const },
-              { id: 'ds-waibu', name: '外部董事（占多数）', level: 4 as const },
-            ]
-          },
-          {
-            id: 'jianshihui',
-            name: '监事会/审计委员会',
-            level: 3 as const,
-            children: [
-              { id: 'js-jianshizhang', name: '监事长/主席', level: 4 as const },
-              { id: 'js-zhigong', name: '职工监事', level: 4 as const },
-              { id: 'js-waibu', name: '外部监事', level: 4 as const },
-            ]
-          },
-          {
-            id: 'jingli',
-            name: '经理层（经营班子）',
-            level: 3 as const,
-            children: [
-              { id: 'jl-zongjingli', name: '总经理（党委副书记）', level: 4 as const },
-              { id: 'jl-fuzong', name: '副总经理（若干）', level: 4 as const },
-              { id: 'jl-caiwu', name: '总会计师/财务总监', level: 4 as const },
-              { id: 'jl-falv', name: '总法律顾问', level: 4 as const },
-              { id: 'jl-mishu', name: '董事会秘书', level: 4 as const },
-            ]
-          }
-        ]
-      },
-      {
-        id: 'level-zongbu',
-        name: '总部职能部门（管理与支撑中枢）',
-        level: 2 as const,
-        children: [
-          {
-            id: 'zb-xingzheng',
-            name: '综合行政类',
-            level: 3 as const,
-            children: [
-              { id: 'xz-bangongshi', name: '办公室/综合管理部', level: 4 as const },
-              { id: 'xz-dongban', name: '董事会办公室/改革办', level: 4 as const },
-              { id: 'xz-xinfang', name: '信访办公室', level: 4 as const },
-            ]
-          },
-          {
-            id: 'zb-dangjian',
-            name: '党建人事类',
-            level: 3 as const,
-            children: [
-              { id: 'dj-zuzhi', name: '党委组织部/人力资源部', level: 4 as const },
-              { id: 'dj-xuanchuan', name: '党委宣传部/企业文化部', level: 4 as const },
-              { id: 'dj-dangqun', name: '党群工作部（工会、团委、统战）', level: 4 as const },
-              { id: 'dj-laoganbu', name: '老干部工作部', level: 4 as const },
-            ]
-          },
-          {
-            id: 'zb-zhanlue',
-            name: '战略投资类',
-            level: 3 as const,
-            children: [
-              { id: 'zl-guihua', name: '战略规划部/发展部', level: 4 as const },
-              { id: 'zl-touzi', name: '投资管理部/资本运营部', level: 4 as const },
-              { id: 'zl-qiye', name: '企业管理部/改革部', level: 4 as const },
-            ]
-          },
-          {
-            id: 'zb-caiwu',
-            name: '财务资产类',
-            level: 3 as const,
-            children: [
-              { id: 'cw-guanli', name: '财务管理部', level: 4 as const },
-              { id: 'cw-ziben', name: '资本运营部/金融管理部', level: 4 as const },
-              { id: 'cw-zichan', name: '资产管理部', level: 4 as const },
-            ]
-          },
-          {
-            id: 'zb-yunying',
-            name: '运营生产类',
-            level: 3 as const,
-            children: [
-              { id: 'yy-yunying', name: '运营管理部/生产调度部', level: 4 as const },
-              { id: 'yy-anquan', name: '安全环保部（HSE）', level: 4 as const },
-              { id: 'yy-zhiliang', name: '质量技术部/科技部', level: 4 as const },
-              { id: 'yy-gongcheng', name: '工程建设部/项目管理部', level: 4 as const },
-            ]
-          },
-          {
-            id: 'zb-fengkong',
-            name: '风控监督类',
-            level: 3 as const,
-            children: [
-              { id: 'fk-shenji', name: '审计部（内部审计）', level: 4 as const },
-              { id: 'fk-jijian', name: '纪检监察室/巡视办', level: 4 as const },
-              { id: 'fk-falv', name: '法律合规部/风控部', level: 4 as const },
-              { id: 'fk-jianshi', name: '监事会办公室', level: 4 as const },
-            ]
-          },
-          {
-            id: 'zb-shuzihua',
-            name: '数字化与保障类',
-            level: 3 as const,
-            children: [
-              { id: 'sz-xinxihua', name: '信息化部/数字化部', level: 4 as const },
-              { id: 'sz-caigou', name: '采购管理部/供应链管理部', level: 4 as const },
-              { id: 'sz-houqin', name: '后勤保障部/行政事务中心', level: 4 as const },
-            ]
-          }
-        ]
-      },
-      {
-        id: 'level-yewu',
-        name: '业务执行层（产业与区域布局）',
-        level: 2 as const,
-        children: [
-          {
-            id: 'yw-erji',
-            name: '二级子公司（产业板块）',
-            level: 3 as const,
-            children: [
-              {
-                id: 'yw-shuju',
-                name: '数据集团',
-                level: 4 as const,
-                children: [
-                  { id: 'th-xingzheng', name: '太湖云-行政部', level: 4 as const },
-                  { id: 'th-caiwu', name: '太湖云-财务部', level: 4 as const },
-                  { id: 'th-jishu', name: '太湖云-技术部', level: 4 as const },
-                  { id: 'th-yunying', name: '太湖云-运营部', level: 4 as const },
-                  { id: 'gk-rd', name: '国联科技-研发中心', level: 4 as const },
-                  { id: 'gk-product', name: '国联科技-产品部', level: 4 as const },
-                  { id: 'gk-market', name: '国联科技-市场部', level: 4 as const },
-                  { id: 'gk-qa', name: '国联科技-测试部', level: 4 as const },
-                  { id: 'wy-zonghe', name: '国联物业-综合管理部', level: 4 as const },
-                  { id: 'wy-yunying', name: '国联物业-运营管理部', level: 4 as const },
-                  { id: 'wy-kefu', name: '国联物业-客户服务部', level: 4 as const },
-                ]
-              },
-              {
-                id: 'yw-touzi',
-                name: '国联投资',
-                level: 4 as const,
-                children: [
-                  { id: 'tz-bangongshi', name: '投资办公室', level: 4 as const },
-                  { id: 'tz-yanjiu', name: '投资研究部', level: 4 as const },
-                  { id: 'tz-fengkong', name: '风控合规部', level: 4 as const },
-                  { id: 'tz-touhou', name: '投后管理部', level: 4 as const },
-                ]
-              }
-            ]
-          },
-          {
-            id: 'yw-quyu',
-            name: '区域分公司/事业部',
-            level: 3 as const,
-            children: [
-              { id: 'qy-huabei', name: '华北区域公司', level: 4 as const },
-              { id: 'qy-huadong', name: '华东区域公司', level: 4 as const },
-              { id: 'qy-huanan', name: '华南区域公司', level: 4 as const },
-              { id: 'qy-xinan', name: '西南区域公司', level: 4 as const },
-            ]
-          },
-          {
-            id: 'yw-zhishu',
-            name: '直属单位/专业机构',
-            level: 3 as const,
-            children: [
-              { id: 'zs-yanjiuyuan', name: '研究院/技术中心', level: 4 as const },
-              { id: 'zs-shejiyuan', name: '设计院/咨询公司', level: 4 as const },
-              { id: 'zs-peixun', name: '培训中心/党校', level: 4 as const },
-              { id: 'zs-xinxi', name: '信息中心/数据中心', level: 4 as const },
-              { id: 'zs-caiwu', name: '财务共享中心', level: 4 as const },
-            ]
-          }
-        ]
-      },
-      {
-        id: 'level-jiceng',
-        name: '基层单元（执行末梢）',
-        level: 2 as const,
-        children: [
-          {
-            id: 'jc-chejian',
-            name: '车间/工区/班组',
-            level: 3 as const,
-            children: [
-              { id: 'cj-shengchan', name: '生产班组', level: 4 as const },
-              { id: 'cj-jishu', name: '技术班组', level: 4 as const },
-              { id: 'cj-weixiu', name: '维修班组', level: 4 as const },
-            ]
-          },
-          {
-            id: 'jc-xiangmu',
-            name: '项目部/项目组',
-            level: 3 as const,
-            children: [
-              { id: 'xm-jingli', name: '项目经理部', level: 4 as const },
-              { id: 'xm-jishu', name: '技术组', level: 4 as const },
-              { id: 'xm-anquan', name: '安全组', level: 4 as const },
-              { id: 'xm-houqin', name: '后勤组', level: 4 as const },
-            ]
-          },
-          {
-            id: 'jc-yingye',
-            name: '营业网点/服务站',
-            level: 3 as const,
-            children: [
-              { id: 'yy-yeting', name: '营业厅/窗口', level: 4 as const },
-              { id: 'yy-fuwu', name: '服务站/代办点', level: 4 as const },
-            ]
-          },
-          {
-            id: 'jc-dangzhibu',
-            name: '党支部/党小组',
-            level: 3 as const,
-            children: [
-              { id: 'dz-yixian', name: '生产一线党支部', level: 4 as const },
-              { id: 'dz-linshi', name: '项目临时党支部', level: 4 as const },
-            ]
-          }
-        ]
-      }
+      { id: 'sales-business', name: '商务组', level: 2 as const },
+      { id: 'sales-platform', name: '平台销售组', level: 2 as const },
+      { id: 'sales-team1', name: '市场销售一组', level: 2 as const },
+      { id: 'sales-team2', name: '市场销售二组', level: 2 as const },
+      { id: 'sales-solution', name: '解决方案组', level: 2 as const },
     ]
-  }
+  },
+  {
+    id: 'taihu-digital',
+    name: '数智业务部',
+    level: 1 as const,
+    children: [
+      { id: 'digital-wuxi', name: '数字国联', level: 2 as const },
+      { id: 'digital-soe', name: '数智国企', level: 2 as const },
+      { id: 'digital-water', name: '智慧水务', level: 2 as const },
+      { id: 'digital-hardware', name: '硬件研发中心', level: 2 as const },
+      { id: 'digital-ai', name: 'AI赋能中心', level: 2 as const },
+    ]
+  },
+  { id: 'taihu-admin', name: '综合管理部', level: 1 as const },
+  { id: 'taihu-finance', name: '财务部', level: 1 as const },
 ];
 
+function sampleDataset(id: string, name: string): FileNode[] {
+  return [
+    {
+      id: `${id}-folder`,
+      name: '默认文件夹',
+      type: 'folder' as const,
+      permission: 'group' as const,
+      children: [
+        {
+          id: `${id}-file`,
+          name: `${name} 示例文档.md`,
+          type: 'file' as const,
+          size: '12 KB',
+          modifiedAt: '2026-06-30',
+          permission: 'group' as const,
+          content: `# ${name}
+
+这是 ${name} 的知识库示例文档。`,
+        },
+      ],
+    },
+  ];
+}
+
 export const knowledgeBaseData: Record<string, FileNode[]> = {
-  'cj-jishu': [
-    {
-      id: 'jsbz-1', name: '技术班组', type: 'folder' as const, permission: 'group' as const,
-      children: [
-        { id: 'jsbz-1-1', name: '技术攻关项目记录', type: 'file' as const, size: '3.2 MB', modifiedAt: '2026-06-20', permission: 'group' as const, content: '# 技术攻关项目记录\n\n## 项目：大模型推理加速优化\n\n### 问题描述\n\n当前GPT-4模型单次推理耗时3.2秒，无法满足实时对话需求。\n\n### 攻关方案\n\n1. 模型量化（FP16→INT8）\n2. KV Cache优化\n3. 批处理合并\n4. 异构计算调度\n\n### 成果\n\n推理耗时降至0.8秒，性能提升4倍。' },
-      ]
-    }
-  ],
-  'cj-shengchan': [
-    {
-      id: 'sc-1', name: '班组管理', type: 'folder' as const, permission: 'group' as const,
-      children: [
-        { id: 'sc-1-1', name: '班组安全生产标准化手册', type: 'file' as const, size: '2.5 MB', modifiedAt: '2026-04-15', permission: 'group' as const, content: '# 班组安全生产标准化手册\n\n## 一、班前会制度\n\n1. 点名签到\n2. 安全交底\n3. 任务分配\n4. 风险提示\n\n## 二、作业规范\n\n| 工序 | 操作要点 | 安全注意事项 | 质量标准 |\n|------|----------|--------------|----------|\n| 数据接入 | 校验完整性 | 防止数据泄露 | 准确率≥99.9% |\n| 模型训练 | 监控资源使用 | 防止过热 | 收敛时间≤4h |\n| 服务部署 | 灰度发布 | 回滚准备 | 可用性≥99.95% |' },
-      ]
-    }
-  ],
-  'cj-weixiu': [
-    {
-      id: 'wx-1', name: '维修班组', type: 'folder' as const, permission: 'group' as const,
-      children: [
-        { id: 'wx-1-1', name: '设备维护保养规程', type: 'file' as const, size: '2.8 MB', modifiedAt: '2026-05-10', permission: 'group' as const, content: '# 设备维护保养规程\n\n## 一、服务器维护\n\n| 维护项目 | 频次 | 内容 | 责任人 |\n|----------|------|------|--------|\n| 硬件巡检 | 每日 | 温度、风扇、指示灯 | 值班人员 |\n| 系统更新 | 每周 | 补丁安装、日志清理 | 系统管理员 |\n| 深度保养 | 每月 | 除尘、线缆检查 | 维修班组 |\n| 预防性维护 | 每季 | 部件老化评估 | 技术主管 |' },
-      ]
-    }
-  ],
-  'dj-dangqun': [
-    {
-      id: 'dq-1', name: '工会工作', type: 'folder' as const, permission: 'group' as const,
-      children: [
-        { id: 'dq-1-1', name: '工会年度工作要点', type: 'file' as const, size: '2.1 MB', modifiedAt: '2026-02-15', permission: 'group' as const, content: '# 2026年工会年度工作要点\n\n## 一、民主管理\n\n1. 完善职工代表大会制度\n2. 推进厂务公开\n3. 开展合理化建议活动\n\n## 二、权益维护\n\n1. 做好困难职工帮扶\n2. 开展职工健康体检\n3. 组织职工疗休养\n\n## 三、文化活动\n\n1. 举办职工运动会\n2. 开展文艺汇演\n3. 组织技能竞赛' },
-      ]
-    },
-    {
-      id: 'dq-2', name: '团委工作', type: 'folder' as const, permission: 'group' as const,
-      children: [
-        { id: 'dq-2-1', name: '青年突击队组建方案', type: 'file' as const, size: '1.5 MB', modifiedAt: '2026-05-20', permission: 'group' as const, content: '# 青年突击队组建方案\n\n## 一、组建原则\n\n围绕中心、服务大局，在急难险重任务中发挥青年生力军作用。\n\n## 二、组建条件\n\n- 35岁以下青年占比不低于70%\n- 有明确的攻坚目标和任务\n- 有固定的队长和指导人员\n\n## 三、主要任务\n\n1. 数字化转型攻坚\n2. 技术难题攻关\n3. 应急服务保障' },
-      ]
-    }
-  ],
-  'dj-laoganbu': [
-    {
-      id: 'gb-1', name: '老干部管理', type: 'folder' as const, permission: 'group' as const,
-      children: [
-        { id: 'gb-1-1', name: '老干部服务管理办法', type: 'file' as const, size: '1.8 MB', modifiedAt: '2026-04-01', permission: 'group' as const, content: '# 老干部服务管理办法\n\n## 第一章 总则\n\n第一条 为做好离退休干部服务管理工作，落实老干部政治待遇和生活待遇，制定本办法。\n\n## 第二章 政治待遇\n\n1. 定期组织政治学习\n2. 按规定阅读文件\n3. 参加重要会议和活动\n4. 听取工作情况通报\n\n## 第三章 生活待遇\n\n1. 确保养老金按时足额发放\n2. 落实医疗待遇\n3. 开展走访慰问\n4. 组织健康体检' },
-      ]
-    }
-  ],
-  'dj-xuanchuan': [
-    {
-      id: 'xc-1', name: '宣传工作', type: 'folder' as const, permission: 'group' as const,
-      children: [
-        { id: 'xc-1-1', name: '企业文化手册', type: 'file' as const, size: '8.5 MB', modifiedAt: '2026-03-20', permission: 'group' as const, content: '# 国联集团企业文化手册\n\n## 企业使命\n\n赋能数字未来，共创智慧生活\n\n## 企业愿景\n\n成为值得信赖的数字化产业领航者\n\n## 核心价值观\n\n| 价值观 | 内涵 | 行为准则 |\n|--------|------|----------|\n| 诚信 | 诚实守信，言行一致 | 说到做到，信守承诺 |\n| 创新 | 勇于突破，追求卓越 | 敢于尝试，持续改进 |\n| 协作 |  teamwork，共同成长 | 开放包容，互帮互助 |\n| 担当 | 勇于负责，敢于承担 | 主动担当，不推诿 |\n\n## 企业精神\n\n团结、务实、拼搏、奉献' }, 
-        { id: 'xc-1-2', name: '2026年宣传工作方案', type: 'file' as const, size: '2.8 MB', modifiedAt: '2026-06-05', permission: 'group' as const, content: '# 2026年宣传工作方案\n\n## 一、宣传主题\n\n数字赋能高质量发展\n\n## 二、重点工作\n\n1. 打造太湖云AI企业智能体品牌IP\n2. 建设集团融媒体矩阵\n3. 开展国企开放日活动\n4. 制作企业形象宣传片' },
-      ]
-    }
-  ],
-  'dj-zuzhi': [
-    {
-      id: 'zz-1', name: '干部管理', type: 'folder' as const, permission: 'group' as const,
-      children: [
-        { id: 'zz-1-1', name: '干部选拔任用管理办法', type: 'file' as const, size: '3.8 MB', modifiedAt: '2026-04-10', permission: 'group' as const, content: '# 干部选拔任用管理办法\n\n## 第一章 总则\n\n第一条 为规范集团干部选拔任用工作，建设高素质干部队伍，制定本办法。\n\n## 第二章 选拔条件\n\n### 2.1 基本条件\n\n- 政治立场坚定，拥护党的领导\n- 具有5年以上相关工作经历\n- 近3年年度考核均为称职以上\n- 具备岗位所需的专业知识和管理能力\n\n## 第三章 选拔程序\n\n民主推荐 → 组织考察 → 党委讨论决定 → 任前公示 → 任职' }, 
-        { id: 'zz-1-2', name: '后备干部名册', type: 'file' as const, size: '2.4 MB', modifiedAt: '2026-06-20', permission: 'group' as const, content: '# 后备干部名册\n\n| 姓名 | 性别 | 年龄 | 学历 | 现任职务 | 后备方向 | 培养措施 |\n|------|------|------|------|----------|----------|----------|\n| 张XX | 男 | 38 | 硕士 | 部门副经理 | 部门经理 | 轮岗锻炼 |\n| 李XX | 女 | 35 | 博士 | 项目经理 | 子公司副总 | 挂职锻炼 |\n| 王XX | 男 | 40 | 硕士 | 技术主管 | 技术总监 | 专项培训 |' },
-      ]
-    },
-    {
-      id: 'zz-2', name: '薪酬绩效', type: 'folder' as const, permission: 'group' as const,
-      children: [
-        { id: 'zz-2-1', name: '薪酬管理制度', type: 'file' as const, size: '4.2 MB', modifiedAt: '2026-05-15', permission: 'group' as const, content: '# 薪酬管理制度\n\n## 第一章 总则\n\n第一条 为建立科学的薪酬分配体系，调动员工积极性，制定本制度。\n\n## 第二章 薪酬结构\n\n| 构成 | 占比 | 说明 |\n|------|------|------|\n| 基本工资 | 40% | 岗位工资+薪级工资 |\n| 绩效工资 | 35% | 与个人绩效挂钩 |\n| 津贴补贴 | 15% | 交通、通讯、餐补等 |\n| 年终奖金 | 10% | 与公司效益挂钩 |' },
-      ]
-    },
-    {
-      id: 'zz-3', name: '培训开发', type: 'folder' as const, permission: 'group' as const,
-      children: [
-        { id: 'zz-3-1', name: '2026年度培训计划', type: 'file' as const, size: '3.5 MB', modifiedAt: '2026-01-25', permission: 'group' as const, content: '# 2026年度培训计划\n\n| 培训类别 | 培训对象 | 培训内容 | 培训时间 | 预算（万元） |\n|----------|----------|----------|----------|--------------|\n| 领导力培训 | 中高层管理者 | 战略管理、团队建设 | 全年 | 120 |\n| 专业能力 | 业务骨干 | 行业知识、专业技能 | 全年 | 80 |\n| 新员工培训 | 新入职员工 | 企业文化、规章制度 | 每月 | 30 |\n| 合规培训 | 全体员工 | 法律法规、合规要求 | 每季度 | 50 |' },
-      ]
-    }
-  ],
-  'ds-dongshizhang': [
-    {
-      id: 'ds-1', name: '董事会议案', type: 'folder' as const, permission: 'group' as const,
-      children: [
-        { id: 'ds-1-1', name: '2026年第五次董事会议案汇编', type: 'file' as const, size: '5.6 MB', modifiedAt: '2026-06-18', permission: 'group' as const, content: '# 2026年第五次董事会议案汇编\n\n## 议案一\n\n关于收购太湖水务集团有限公司51%股权的议案\n\n## 议案二\n\n关于2026年度中期财务预算调整的议案\n\n## 议案三\n\n关于聘任张XX为数据集团副总经理的议案' }, 
-        { id: 'ds-1-2', name: '董事会决议执行情况跟踪表', type: 'file' as const, size: '2.3 MB', modifiedAt: '2026-06-20', permission: 'group' as const, content: '# 董事会决议执行情况跟踪表\n\n| 决议编号 | 决议事项 | 责任部门 | 计划完成时间 | 实际进展 | 状态 |\n|----------|----------|----------|--------------|----------|------|\n| 2026-001 | 数字化转型方案 | 数据集团 | 2026.06 | 已完成评审 | 已完成 |\n| 2026-002 | 太湖水务收购 | 战略投资部 | 2026.09 | 尽职调查中 | 进行中 |\n| 2026-003 | 内部审计整改 | 审计部 | 2026.07 | 整改80% | 进行中 |' },
-      ]
-    }
-  ],
-  'ds-neibu': [
-    {
-      id: 'dsnb-1', name: '董事履职文件', type: 'folder' as const, permission: 'group' as const,
-      children: [
-        { id: 'dsnb-1-1', name: '董事履职评价报告', type: 'file' as const, size: '1.8 MB', modifiedAt: '2026-05-30', permission: 'group' as const, content: '# 2026年度董事履职评价报告\n\n## 评价对象\n\n- 张XX（董事长）：优秀\n- 李XX（总经理）：优秀\n- 王XX（职工董事）：良好\n\n## 评价内容\n\n1. 出席董事会会议情况\n2. 审议议案准备情况\n3. 提出建设性意见情况\n4. 参加调研培训情况' },
-      ]
-    }
-  ],
-  'ds-waibu': [
-    {
-      id: 'dswb-1', name: '外部董事文件', type: 'folder' as const, permission: 'group' as const,
-      children: [
-        { id: 'dswb-1-1', name: '外部董事年度述职报告', type: 'file' as const, size: '2.4 MB', modifiedAt: '2026-05-25', permission: 'group' as const, content: '# 2026年度外部董事述职报告\n\n## 一、出席情况\n\n本年度共召开董事会会议6次，出席率100%。\n\n## 二、主要履职活动\n\n1. 参加战略研讨会2次\n2. 开展实地调研3次\n3. 提出书面意见5份\n4. 参加专题培训16学时\n\n## 三、主要建议\n\n1. 建议加强数字化转型投入\n2. 建议完善风险管理体系\n3. 建议优化投资决策流程' },
-      ]
-    }
-  ],
-  'dw-changwei': [
-    {
-      id: 'dwcw-1', name: '常委会议材料', type: 'folder' as const, permission: 'group' as const,
-      children: [
-        { id: 'dwcw-1-1', name: '2026年第六次常委会议纪要', type: 'file' as const, size: '1.2 MB', modifiedAt: '2026-06-15', permission: 'group' as const, content: '# 2026年第六次党委常委会议纪要\n\n## 会议议题\n\n1. 审议通过《国联集团数字化转型三年行动方案》\n2. 研究部署安全生产专项整治工作\n3. 讨论干部任免事项\n\n## 会议决议\n\n一、数字化转型方案\n\n同意数据集团提交的太湖水务收购方案，要求战略投资部做好尽职调查。\n\n二、安全生产\n\n成立安全生产专项整治领导小组，由党委副书记任组长。\n\n三、干部任免\n\n同意张XX同志任数据集团副总经理，免去其国联科技总经理职务。' }, 
-        { id: 'dwcw-1-2', name: '党委理论学习中心组学习材料', type: 'file' as const, size: '2.8 MB', modifiedAt: '2026-06-10', permission: 'group' as const, content: '# 党委理论学习中心组学习材料\n\n## 学习主题\n\n深入学习贯彻习近平总书记关于国有企业改革发展的重要论述。\n\n## 学习要点\n\n1. 坚持党对国有企业的全面领导\n2. 完善中国特色现代企业制度\n3. 推进国有企业数字化转型\n4. 加强国有企业党风廉政建设' },
-      ]
-    },
-    {
-      id: 'dwcw-2', name: '党建工作', type: 'folder' as const, permission: 'group' as const,
-      children: [
-        { id: 'dwcw-2-1', name: '2026年党建工作要点', type: 'file' as const, size: '3.5 MB', modifiedAt: '2026-01-20', permission: 'group' as const, content: '# 2026年国联集团党建工作要点\n\n## 一、总体要求\n\n以习近平新时代中国特色社会主义思想为指导，全面贯彻党的二十大精神。\n\n## 二、重点任务\n\n| 序号 | 任务 | 责任部门 | 完成时限 |\n|------|------|----------|----------|\n| 1 | 开展主题教育 | 党委宣传部 | 6月底 |\n| 2 | 组织支部书记培训 | 党委组织部 | 3月底 |\n| 3 | 评选先进基层党组织 | 党群工作部 | 7月初 |\n| 4 | 完善党员发展流程 | 党委组织部 | 全年 |' },
-      ]
-    }
-  ],
-  'dw-dangjian': [
-    {
-      id: 'dj-1', name: '党建文件', type: 'folder' as const, permission: 'group' as const,
-      children: [
-        { id: 'dj-1-1', name: '基层党组织建设规范', type: 'file' as const, size: '2.1 MB', modifiedAt: '2026-04-15', permission: 'group' as const, content: '# 基层党组织建设规范\n\n## 第一章 总则\n\n第一条 为加强基层党组织建设，提升组织力，制定本规范。\n\n## 第二章 组织设置\n\n### 2.1 设置原则\n\n- 党员3人以上应建立党支部\n- 党支部党员一般不超过50人\n- 项目部应建立临时党支部\n\n### 2.2 支部委员会\n\n支部委员会设书记1人，必要时设副书记1人，委员3-5人。' }, 
-        { id: 'dj-1-2', name: '党员发展工作流程', type: 'file' as const, size: '1.8 MB', modifiedAt: '2026-05-20', permission: 'group' as const, content: '# 党员发展工作流程\n\n## 发展流程\n\n1. 入党申请人提交入党申请书\n2. 党组织派人谈话（1个月内）\n3. 确定为入党积极分子（支委会讨论）\n4. 培养教育和考察（1年以上）\n5. 确定为发展对象\n6. 政治审查\n7. 集中培训（不少于3天）\n8. 支部大会讨论表决\n9. 上级党委审批\n10. 预备期考察（1年）\n11. 转正审批' },
-      ]
-    }
-  ],
-  'dw-quanwei': [
-    {
-      id: 'dwqw-1', name: '全委会文件', type: 'folder' as const, permission: 'group' as const,
-      children: [
-        { id: 'dwqw-1-1', name: '2026年全委会工作报告', type: 'file' as const, size: '4.2 MB', modifiedAt: '2026-03-25', permission: 'group' as const, content: '# 国联集团2026年全委会工作报告\n\n## 一、2025年工作回顾\n\n2025年集团实现营业收入135亿元，同比增长12%；利润总额18.5亿元，同比增长15%。\n\n## 二、2026年工作部署\n\n### 2.1 经营目标\n\n- 营业收入：150亿元\n- 利润总额：22亿元\n- 新增投资：30亿元\n\n### 2.2 重点工作\n\n1. 推进太湖云AI企业智能体平台建设\n2. 完成太湖水务收购\n3. 启动数字化转型三年行动\n4. 深化国企改革三年行动成果' },
-      ]
-    }
-  ],
-  'dz-linshi': [
-    {
-      id: 'dls-1', name: '临时支部', type: 'folder' as const, permission: 'group' as const,
-      children: [
-        { id: 'dls-1-1', name: '临时党支部组建指南', type: 'file' as const, size: '1.8 MB', modifiedAt: '2026-04-10', permission: 'group' as const, content: '# 项目临时党支部组建指南\n\n## 一、组建条件\n\n项目工期3个月以上，党员3人以上，应建立临时党支部。\n\n## 二、组建程序\n\n1. 上级党组织批复\n2. 召开党员大会选举\n3. 明确支部书记\n4. 制定工作计划\n\n## 三、主要职责\n\n1. 加强党员教育管理\n2. 发挥党员先锋模范作用\n3. 做好思想政治工作\n4. 参与项目重大决策' },
-      ]
-    }
-  ],
-  'dz-yixian': [
-    {
-      id: 'dyx-1', name: '支部建设', type: 'folder' as const, permission: 'group' as const,
-      children: [
-        { id: 'dyx-1-1', name: '生产一线党支部工作手册', type: 'file' as const, size: '2.5 MB', modifiedAt: '2026-03-25', permission: 'group' as const, content: '# 生产一线党支部工作手册\n\n## 一、组织架构\n\n支部书记：1人\n支部委员：3人（组织、宣传、纪检）\n党员人数：15人\n\n## 二、三会一课\n\n| 会议 | 频次 | 时间 |\n|------|------|------|\n| 支部党员大会 | 每季 | 季末最后一周 |\n| 支部委员会 | 每月 | 月初第一周 |\n| 党小组会 | 每月 | 月中 |\n| 党课 | 每季 | 配合党员大会 |' },
-      ]
-    }
-  ],
-  'jl-caiwu': [
-    {
-      id: 'jlcw-1', name: '财务总监文件', type: 'folder' as const, permission: 'group' as const,
-      children: [
-        { id: 'jlcw-1-1', name: '2026年度财务预算方案', type: 'file' as const, size: '6.2 MB', modifiedAt: '2026-02-28', permission: 'group' as const, content: '# 2026年度财务预算方案\n\n## 一、收入预算\n\n| 板块 | 预算金额（亿元） | 占比 |\n|------|------------------|------|\n| 数据科技 | 45 | 30% |\n| 现代物业 | 35 | 23% |\n| 产业投资 | 25 | 17% |\n| 其他业务 | 45 | 30% |\n\n## 二、成本预算\n\n总成本预算：108亿元\n\n## 三、利润预算\n\n目标利润总额：22亿元' },
-      ]
-    }
-  ],
-  'jl-falv': [
-    {
-      id: 'jlfw-1', name: '法律事务', type: 'folder' as const, permission: 'group' as const,
-      children: [
-        { id: 'jlfw-1-1', name: '重大合同法律审核意见书', type: 'file' as const, size: '3.4 MB', modifiedAt: '2026-06-15', permission: 'group' as const, content: '# 重大合同法律审核意见书\n\n## 合同名称\n\n太湖水务集团有限公司股权转让协议\n\n## 审核意见\n\n### 一、主体资格审查\n\n交易各方主体资格合法有效。\n\n### 二、交易条款审查\n\n1. 转让价格公允\n2. 付款条件合理\n3. 过渡期安排明确\n4. 违约责任对等\n\n### 三、风险提示\n\n1. 建议补充环保责任承担条款\n2. 建议明确员工安置方案' },
-      ]
-    }
-  ],
-  'jl-fuzong': [
-    {
-      id: 'jlfz-1', name: '副总经理分工', type: 'folder' as const, permission: 'group' as const,
-      children: [
-        { id: 'jlfz-1-1', name: '副总经理分工调整方案', type: 'file' as const, size: '1.8 MB', modifiedAt: '2026-04-01', permission: 'group' as const, content: '# 副总经理分工调整方案\n\n## 一、李XX副总经理\n\n分管：战略投资、企业管理、资本运作\n\n## 二、王XX副总经理\n\n分管：运营管理、安全生产、工程建设\n\n## 三、赵XX副总经理\n\n分管：财务管理、人力资源、后勤保障' },
-      ]
-    }
-  ],
-  'jl-mishu': [
-    {
-      id: 'jlms-1', name: '董秘工作', type: 'folder' as const, permission: 'group' as const,
-      children: [
-        { id: 'jlms-1-1', name: '信息披露管理制度', type: 'file' as const, size: '2.8 MB', modifiedAt: '2026-03-15', permission: 'group' as const, content: '# 信息披露管理制度\n\n## 第一章 总则\n\n第一条 为规范国联集团信息披露工作，保护投资者合法权益，制定本制度。\n\n## 第二章 披露内容\n\n1. 定期报告：年度报告、半年度报告、季度报告\n2. 临时报告：重大事件公告\n3. 其他披露：关联交易、对外担保等\n\n## 第三章 披露程序\n\n信息收集 → 审核 → 审批 → 披露 → 存档' },
-      ]
-    }
-  ],
-  'jl-zongjingli': [
-    {
-      id: 'jlzj-1', name: '总经理办公会', type: 'folder' as const, permission: 'group' as const,
-      children: [
-        { id: 'jlzj-1-1', name: '2026年第十次总经理办公会纪要', type: 'file' as const, size: '2.6 MB', modifiedAt: '2026-06-22', permission: 'group' as const, content: '# 2026年第十次总经理办公会议纪要\n\n## 会议信息\n\n- 时间：2026年6月22日\n- 地点：集团总部A会议室\n- 主持：总经理\n\n## 会议议题\n\n1. 审议2026年上半年经营分析报告\n2. 研究部署下半年重点工作\n3. 讨论知识库管理系统建设方案\n\n## 会议决议\n\n一、上半年经营情况\n\n实现营业收入78亿元，完成年度预算52%，同比增长14%。\n\n二、下半年重点工作\n\n1. 确保完成全年150亿元营收目标\n2. 推进太湖云AI企业智能体平台上线运营\n3. 完成太湖水务收购交割' }, 
-        { id: 'jlzj-1-2', name: '总经理年度工作报告', type: 'file' as const, size: '8.5 MB', modifiedAt: '2026-03-10', permission: 'group' as const, content: '# 2026年度总经理工作报告\n\n## 一、2025年工作回顾\n\n### 1.1 经营业绩\n\n| 指标 | 2025年 | 同比 |\n|------|--------|------|\n| 营业收入 | 135亿元 | +12% |\n| 利润总额 | 18.5亿元 | +15% |\n| 资产总额 | 280亿元 | +8% |\n| 员工人数 | 6,800人 | +5% |\n\n### 1.2 重点工作\n\n- 完成国企改革三年行动\n- 启动太湖云AI企业智能体平台建设\n- 推进数字化转型升级' },
-      ]
-    }
-  ],
-  'js-jianshizhang': [
-    {
-      id: 'jsjz-1', name: '监事会文件', type: 'folder' as const, permission: 'group' as const,
-      children: [
-        { id: 'jsjz-1-1', name: '2026年度监事会工作报告', type: 'file' as const, size: '4.8 MB', modifiedAt: '2026-06-28', permission: 'group' as const, content: '# 2026年度监事会工作报告\n\n## 一、监事会工作情况\n\n上半年共召开监事会会议3次，列席董事会会议6次。\n\n## 二、监督检查情况\n\n### 2.1 财务监督\n\n对2025年度财务决算进行了审核，认为财务报表真实、完整。\n\n### 2.2 重大决策监督\n\n对重大投资决策程序进行了监督，认为决策程序合规。\n\n## 三、发现问题\n\n| 问题类别 | 问题数量 | 整改建议 |\n|----------|----------|----------|\n| 财务管理 | 2 | 加强预算执行管控 |\n| 内部控制 | 3 | 完善审批流程 |\n| 合规管理 | 1 | 加强法律审核 |' },
-      ]
-    }
-  ],
-  'js-waibu': [
-    {
-      id: 'jswb-1', name: '外部监事文件', type: 'folder' as const, permission: 'group' as const,
-      children: [
-        { id: 'jswb-1-1', name: '外部监事履职报告', type: 'file' as const, size: '1.5 MB', modifiedAt: '2026-05-20', permission: 'group' as const, content: '# 2026年度外部监事履职报告\n\n## 一、履职情况\n\n本年度出席监事会会议3次，列席董事会会议2次。\n\n## 二、主要意见\n\n1. 建议加强关联交易管理\n2. 建议完善信息披露制度\n3. 建议强化内部审计独立性' },
-      ]
-    }
-  ],
-  'js-zhigong': [
-    {
-      id: 'jszg-1', name: '职工监事文件', type: 'folder' as const, permission: 'group' as const,
-      children: [
-        { id: 'jszg-1-1', name: '职工监事提案汇总', type: 'file' as const, size: '1.2 MB', modifiedAt: '2026-05-15', permission: 'group' as const, content: '# 2026年职工监事提案汇总\n\n## 提案一\n\n关于改善职工工作环境的建议\n\n## 提案二\n\n关于加强职工职业培训的建议\n\n## 提案三\n\n关于完善职工福利制度的建议' },
-      ]
-    }
-  ],
-  'qy-huabei': [
-    {
-      id: 'hb-1', name: '区域运营', type: 'folder' as const, permission: 'group' as const,
-      children: [
-        { id: 'hb-1-1', name: '华北区域年度经营计划', type: 'file' as const, size: '3.2 MB', modifiedAt: '2026-01-20', permission: 'group' as const, content: '# 华北区域2026年度经营计划\n\n## 一、区域概况\n\n管辖范围：北京、天津、河北、山西、内蒙古\n\n## 二、经营目标\n\n| 指标 | 目标值 |\n|------|--------|\n| 营业收入 | 25亿元 |\n| 新签合同额 | 30亿元 |\n| 客户满意度 | ≥95% |\n| 安全事故率 | 0 |\n\n## 三、重点项目\n\n1. 北京智慧园区项目\n2. 天津数据中心项目\n3. 河北新能源项目' }, 
-        { id: 'hb-1-2', name: '华北区域客户名录', type: 'file' as const, size: '2.8 MB', modifiedAt: '2026-06-15', permission: 'group' as const, content: '# 华北区域重点客户名录\n\n| 客户名称 | 行业 | 合作金额 | 合作状态 |\n|----------|------|----------|----------|\n| 首钢集团 | 钢铁 | 2.5亿 | 长期合作 |\n| 北汽集团 | 汽车 | 1.8亿 | 长期合作 |\n| 中国移动北京 | 通信 | 3.2亿 | 战略合作 |\n| 国家电网华北 | 电力 | 4.5亿 | 战略合作 |' },
-      ]
-    }
-  ],
-  'qy-huadong': [
-    {
-      id: 'hd-1', name: '区域运营', type: 'folder' as const, permission: 'group' as const,
-      children: [
-        { id: 'hd-1-1', name: '华东区域年度经营计划', type: 'file' as const, size: '3.5 MB', modifiedAt: '2026-01-20', permission: 'group' as const, content: '# 华东区域2026年度经营计划\n\n## 一、区域概况\n\n管辖范围：上海、江苏、浙江、安徽、山东\n\n## 二、经营目标\n\n| 指标 | 目标值 |\n|------|--------|\n| 营业收入 | 45亿元 |\n| 新签合同额 | 55亿元 |\n| 客户满意度 | ≥95% |\n| 安全事故率 | 0 |\n\n## 三、重点项目\n\n1. 上海金融城智慧物业项目\n2. 江苏智能制造产业园项目\n3. 杭州亚运会场馆运维项目' },
-      ]
-    }
-  ],
-  'qy-huanan': [
-    {
-      id: 'hn-1', name: '区域运营', type: 'folder' as const, permission: 'group' as const,
-      children: [
-        { id: 'hn-1-1', name: '华南区域年度经营计划', type: 'file' as const, size: '3.0 MB', modifiedAt: '2026-01-20', permission: 'group' as const, content: '# 华南区域2026年度经营计划\n\n## 一、区域概况\n\n管辖范围：广东、广西、海南、福建\n\n## 二、经营目标\n\n| 指标 | 目标值 |\n|------|--------|\n| 营业收入 | 30亿元 |\n| 新签合同额 | 38亿元 |\n| 客户满意度 | ≥95% |\n| 安全事故率 | 0 |' },
-      ]
-    }
-  ],
-  'qy-xinan': [
-    {
-      id: 'xn-1', name: '区域运营', type: 'folder' as const, permission: 'group' as const,
-      children: [
-        { id: 'xn-1-1', name: '西南区域年度经营计划', type: 'file' as const, size: '2.8 MB', modifiedAt: '2026-01-20', permission: 'group' as const, content: '# 西南区域2026年度经营计划\n\n## 一、区域概况\n\n管辖范围：四川、重庆、云南、贵州\n\n## 二、经营目标\n\n| 指标 | 目标值 |\n|------|--------|\n| 营业收入 | 20亿元 |\n| 新签合同额 | 25亿元 |\n| 客户满意度 | ≥95% |\n| 安全事故率 | 0 |' },
-      ]
-    }
-  ]
+  'taihu-sales': sampleDataset('taihu-sales', '市场销售中心'),
+  'sales-business': sampleDataset('sales-business', '商务组'),
+  'sales-platform': sampleDataset('sales-platform', '平台销售组'),
+  'sales-team1': sampleDataset('sales-team1', '市场销售一组'),
+  'sales-team2': sampleDataset('sales-team2', '市场销售二组'),
+  'sales-solution': sampleDataset('sales-solution', '解决方案组'),
+  'taihu-digital': sampleDataset('taihu-digital', '数智业务部'),
+  'digital-wuxi': sampleDataset('digital-wuxi', '数字国联'),
+  'digital-soe': sampleDataset('digital-soe', '数智国企'),
+  'digital-water': sampleDataset('digital-water', '智慧水务'),
+  'digital-hardware': sampleDataset('digital-hardware', '硬件研发中心'),
+  'digital-ai': sampleDataset('digital-ai', 'AI赋能中心'),
+  'taihu-admin': sampleDataset('taihu-admin', '综合管理部'),
+  'taihu-finance': sampleDataset('taihu-finance', '财务部'),
 };
