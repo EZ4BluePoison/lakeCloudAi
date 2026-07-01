@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
+import { PanelLeft, PanelLeftClose } from 'lucide-react';
 import Sidebar from '@/components/layout/Sidebar';
 import { MessagesMiddlePanel, MessagesRightPanel } from '@/components/modules/MessagesModule';
 import {
@@ -44,15 +45,31 @@ export default function App() {
   // Knowledge base module state
   const [selectedFileNode, setSelectedFileNode] = useState<FileNode | null>(null);
 
+  // Sidebar & middle panel collapse state
+  // 默认进入消息/智能体对话时，第一栏和历史记录收起，第二栏保持展开
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true);
+  const [isMiddleCollapsed, setIsMiddleCollapsed] = useState(false);
+
   // Check if plaza or superAgent is active (collapses middle panel)
   const isPlazaActive = activeModule === 'agentPlaza' || activeModule === 'superAgent';
 
   const handleModuleChange = useCallback((module: NavModule) => {
     setActiveModule(module);
+    // 进入消息模块时收起第一栏，第二栏默认展开
+    if (module === 'messages') {
+      setIsSidebarCollapsed(true);
+      setIsMiddleCollapsed(false);
+    }
     // Reset sub-views when switching modules
     setWorkbenchView('list');
     setSelectedWorkbenchAgentId(null);
     setSelectedFileNode(null);
+  }, []);
+
+  const handleSelectChatAgent = useCallback((id: string) => {
+    setSelectedChatAgentId(id);
+    setIsSidebarCollapsed(true);
+    setIsMiddleCollapsed(false);
   }, []);
 
   const handleKnowledgeSubChange = useCallback((sub: KnowledgeSubLevel) => {
@@ -130,68 +147,91 @@ export default function App() {
         onModuleChange={handleModuleChange}
         onKnowledgeSubChange={handleKnowledgeSubChange}
         addedAgentCount={addedAgents.length}
+        collapsed={isSidebarCollapsed}
+        onToggleCollapse={() => setIsSidebarCollapsed(v => !v)}
       />
 
       {/* Middle Panel - Collapsible for Plaza */}
       <AnimatePresence initial={false}>
         {!isPlazaActive && (
           <motion.section
+            key="middle-panel"
             initial={{ width: 0, opacity: 0 }}
-            animate={{ width: 320, opacity: 1 }}
+            animate={{ width: isMiddleCollapsed ? 40 : 320, opacity: 1 }}
             exit={{ width: 0, opacity: 0 }}
             transition={{ duration: 0.3, ease: 'easeInOut' }}
-            className="flex-shrink-0 flex flex-col bg-white border-r border-[#DEE0E3] overflow-hidden"
+            className={`flex-shrink-0 flex flex-col bg-white border-r border-[#DEE0E3] overflow-hidden relative ${isMiddleCollapsed ? 'items-center pt-3' : ''}`}
           >
-            {/* ========== Messages ========== */}
-            {activeModule === 'messages' && (
-              <MessagesMiddlePanel
-                agents={addedAgents}
-                selectedAgentId={selectedChatAgentId}
-                onSelectAgent={setSelectedChatAgentId}
-                favorites={favorites}
-                onToggleFavorite={toggleFavorite}
-              />
-            )}
+            {isMiddleCollapsed ? (
+              <button
+                onClick={() => setIsMiddleCollapsed(false)}
+                className="w-7 h-7 flex items-center justify-center rounded text-[#8F959E] hover:text-[#3370FF] hover:bg-[#E8F1FF] transition-colors"
+                title="展开智能体列表"
+              >
+                <PanelLeft className="w-4 h-4" />
+              </button>
+            ) : (
+              <>
+                <button
+                  onClick={() => setIsMiddleCollapsed(true)}
+                  className="absolute top-3 right-2 z-20 w-7 h-7 flex items-center justify-center rounded text-[#8F959E] hover:text-[#3370FF] hover:bg-[#E8F1FF] transition-colors"
+                  title="收起智能体列表"
+                >
+                  <PanelLeftClose className="w-4 h-4" />
+                </button>
 
-            {/* ========== My Agents — 从 plaza 添加的智能体 ========== */}
-            {activeModule === 'myAgents' && (
-              <MyAgentsListPanel
-                agents={addedAgents}
-                selectedAgentId={selectedAddedAgentId}
-                onSelect={setSelectedAddedAgentId}
-                onRemove={handleRemoveAddedAgent}
-                onStartChat={(id) => {
-                  setSelectedChatAgentId(id);
-                  setActiveModule('messages');
-                }}
-                onGoToPlaza={() => setActiveModule('agentPlaza')}
-              />
-            )}
+                {/* ========== Messages ========== */}
+                {activeModule === 'messages' && (
+                  <MessagesMiddlePanel
+                    agents={addedAgents}
+                    selectedAgentId={selectedChatAgentId}
+                    onSelectAgent={handleSelectChatAgent}
+                    favorites={favorites}
+                    onToggleFavorite={toggleFavorite}
+                  />
+                )}
 
-            {/* ========== Workbench — 创建自己的智能体 ========== */}
-            {activeModule === 'workbench' && (
-              <WorkbenchMiddlePanel
-                agents={agents}
-                selectedAgentId={selectedWorkbenchAgentId}
-                onSelectAgent={setSelectedWorkbenchAgentId}
-                onViewStats={handleViewStats}
-                onEditWorkflow={handleEditWorkflow}
-                onDeleteAgent={handleDeleteAgent}
-                onCreateAgent={handleCreateAgent}
-              />
-            )}
+                {/* ========== My Agents — 从 plaza 添加的智能体 ========== */}
+                {activeModule === 'myAgents' && (
+                  <MyAgentsListPanel
+                    agents={addedAgents}
+                    selectedAgentId={selectedAddedAgentId}
+                    onSelect={setSelectedAddedAgentId}
+                    onRemove={handleRemoveAddedAgent}
+                    onStartChat={(id) => {
+                      handleSelectChatAgent(id);
+                      setActiveModule('messages');
+                    }}
+                    onGoToPlaza={() => setActiveModule('agentPlaza')}
+                  />
+                )}
 
-            {/* ========== Knowledge Base ========== */}
-            {activeModule === 'knowledgeBase' && (
-              <KnowledgeBaseMiddlePanel
-                deptPath={activeKnowledgeSub}
-                selectedNodeId={selectedFileNode?.id || null}
-                onSelectNode={(node) => {
-                  if (node.type === 'file') {
-                    setSelectedFileNode(node);
-                  }
-                }}
-              />
+                {/* ========== Workbench — 创建自己的智能体 ========== */}
+                {activeModule === 'workbench' && (
+                  <WorkbenchMiddlePanel
+                    agents={agents}
+                    selectedAgentId={selectedWorkbenchAgentId}
+                    onSelectAgent={setSelectedWorkbenchAgentId}
+                    onViewStats={handleViewStats}
+                    onEditWorkflow={handleEditWorkflow}
+                    onDeleteAgent={handleDeleteAgent}
+                    onCreateAgent={handleCreateAgent}
+                  />
+                )}
+
+                {/* ========== Knowledge Base ========== */}
+                {activeModule === 'knowledgeBase' && (
+                  <KnowledgeBaseMiddlePanel
+                    deptPath={activeKnowledgeSub}
+                    selectedNodeId={selectedFileNode?.id || null}
+                    onSelectNode={(node) => {
+                      if (node.type === 'file') {
+                        setSelectedFileNode(node);
+                      }
+                    }}
+                  />
+                )}
+              </>
             )}
           </motion.section>
         )}
@@ -249,7 +289,7 @@ export default function App() {
                   <AddedAgentDetailPanel
                     agent={selectedAgent}
                     onStartChat={(id) => {
-                      setSelectedChatAgentId(id);
+                      handleSelectChatAgent(id);
                       setActiveModule('messages');
                     }}
                     onRemove={(id) => {

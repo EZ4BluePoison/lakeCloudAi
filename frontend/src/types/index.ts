@@ -91,15 +91,16 @@ export interface ConversationMessage {
   role: 'system' | 'user' | 'assistant';
   content: string;
   timestamp: Date;
-  
+
   // 知识引用
   citations?: Citation[];
-  
+
   // 上下文元数据
   metadata: {
     responseTime?: number;
     tokenUsage?: TokenUsage;
     knowledgeSearched?: KnowledgeSearchResult[];
+    followUpOptions?: string[];
   };
 }
 

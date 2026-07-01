@@ -8,7 +8,7 @@ import type {
 } from '@/types';
 import { createModelService } from '@/services/modelService';
 
-interface SimpleChatMessage {
+export interface SimpleChatMessage {
   role: 'system' | 'user' | 'assistant';
   content: string;
   metadata?: Record<string, unknown>;
@@ -23,12 +23,13 @@ interface ConversationState {
   // Actions
   createSession: (agentId: string, title?: string) => string;
   selectSession: (sessionId: string) => void;
-  addMessage: (sessionId: string, role: 'user' | 'assistant', content: string) => void;
+  addMessage: (sessionId: string, role: 'user' | 'assistant', content: string, metadata?: Record<string, unknown>) => void;
   sendMessage: (sessionId: string, content: string, llmConfig: LLMConfig) => Promise<void>;
   getContextForLLM: (sessionId: string, config: ContextWindowConfig) => SimpleChatMessage[];
   deleteSession: (sessionId: string) => void;
   clearAllSessions: () => void;
   getCurrentSession: () => ConversationSession | null;
+  ensureSessionForAgent: (agentId: string) => string;
 }
 
 export const useConversationStore = create<ConversationState>()(
@@ -41,10 +42,11 @@ export const useConversationStore = create<ConversationState>()(
       
       createSession: (agentId: string, title?: string) => {
         const id = 'session-' + Date.now();
+        const defaultTitle = `新对话 ${new Date().toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`;
         const newSession: ConversationSession = {
           id,
           agentId,
-          title: title || '新对话',
+          title: title || defaultTitle,
           createdAt: new Date(),
           updatedAt: new Date(),
           isActive: true,
@@ -67,13 +69,13 @@ export const useConversationStore = create<ConversationState>()(
         set({ currentSessionId: sessionId });
       },
       
-      addMessage: (sessionId: string, role: 'user' | 'assistant', content: string) => {
+      addMessage: (sessionId: string, role: 'user' | 'assistant', content: string, metadata?: Record<string, unknown>) => {
         const message: ConversationMessage = {
-          id: 'msg-' + Date.now(),
+          id: 'msg-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7),
           role,
           content,
           timestamp: new Date(),
-          metadata: {}
+          metadata: metadata ? (metadata as ConversationMessage['metadata']) : {}
         };
         
         set(state => ({
@@ -163,11 +165,47 @@ export const useConversationStore = create<ConversationState>()(
       getCurrentSession: () => {
         const state = get();
         return state.sessions.find(s => s.id === state.currentSessionId) || null;
+      },
+
+      ensureSessionForAgent: (agentId: string) => {
+        const state = get();
+        const existing = state.sessions
+          .filter(s => s.agentId === agentId)
+          .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())[0];
+        if (existing) {
+          set({ currentSessionId: existing.id });
+          return existing.id;
+        }
+        return get().createSession(agentId);
       }
     }),
     {
       name: 'conversation-storage',
-      version: 1
+      version: 1,
+      merge: (persistedState: unknown, currentState: ConversationState): ConversationState => {
+        if (!persistedState || typeof persistedState !== 'object') {
+          return currentState;
+        }
+        const persisted = persistedState as Partial<ConversationState>;
+        const rawSessions = Array.isArray(persisted.sessions) ? persisted.sessions : [];
+        const sessions = rawSessions.map(session => ({
+          ...session,
+          createdAt: session.createdAt ? new Date(session.createdAt) : new Date(),
+          updatedAt: session.updatedAt ? new Date(session.updatedAt) : new Date(),
+          messages: Array.isArray(session.messages)
+            ? session.messages.map(msg => ({
+                ...msg,
+                timestamp: msg.timestamp ? new Date(msg.timestamp) : new Date()
+              }))
+            : []
+        }));
+        return {
+          ...currentState,
+          ...persisted,
+          sessions,
+          currentSessionId: persisted.currentSessionId ?? currentState.currentSessionId
+        };
+      }
     }
   )
 );

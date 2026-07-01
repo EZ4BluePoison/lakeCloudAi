@@ -1,16 +1,18 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import {
   BookOpen, FileText, CalendarDays, GitBranch,
   Receipt, Scale, FolderKanban, Headphones,
-  Star, Copy, Settings, Send, Paperclip, Image, Mic, Smile, BookOpen as BookOpenIcon,
+  Star, Send, Paperclip, Image, Mic, Smile, BookOpen as BookOpenIcon,
   Bot, Cloud, Sparkles, MessageCircle,
   UserPlus, GraduationCap, PenTool, FileBarChart, TrendingUp, MonitorCog,
   CheckSquare, Sunrise, UtensilsCrossed, Home, Database, Shield, Wrench,
   Presentation
 } from 'lucide-react';
-import type { ChatPanelMessage as ChatMessage, MyAgent, Agent, PlazaAgent } from '@/types';
+import type { ChatPanelMessage as ChatMessage, ConversationMessage, MyAgent, Agent, PlazaAgent } from '@/types';
 import { plazaAgents } from '@/data/agents';
 import { sendMessage as chatServiceSendMessage, type ChatResponse } from '@/services/chatService';
+import { useConversationStore } from '@/store/conversationStore';
+import { Plus, Trash2, History, X } from 'lucide-react';
 
 const iconMap: Record<string, React.ElementType> = {
   BookOpen, FileText, CalendarDays, GitBranch,
@@ -20,8 +22,6 @@ const iconMap: Record<string, React.ElementType> = {
   CheckSquare, Sunrise, UtensilsCrossed, Home, Database, Shield, Wrench,
   Presentation
 };
-
-const generateId = () => Math.random().toString(36).substring(2, 9);
 
 /** Generate contextual responses for each agent */
 function getAgentResponses(agentId: string, agentName: string): { tips: string[]; responses: string[] } {
@@ -210,11 +210,19 @@ export function MessagesMiddlePanel({
               const isActive = selectedAgentId === agent.id;
               const isFav = favorites.includes(agent.id);
               return (
-                <button
+                <div
                   key={agent.id}
+                  role="button"
+                  tabIndex={0}
                   onClick={() => onSelectAgent(agent.id)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      onSelectAgent(agent.id);
+                    }
+                  }}
                   className={`
-                    flex items-start gap-3 px-4 py-3 text-left transition-all duration-150 w-full border-b border-[#F2F3F5]
+                    flex items-start gap-3 px-4 py-3 text-left transition-all duration-150 w-full border-b border-[#F2F3F5] cursor-pointer
                     ${isActive ? 'bg-[#E8F1FF]' : 'hover:bg-[#F8F9FA]'}
                   `}
                 >
@@ -266,7 +274,7 @@ export function MessagesMiddlePanel({
                     </div>
                     <p className="text-[12px] text-[#8F959E] truncate mt-0.5">{agent.description}</p>
                   </div>
-                </button>
+                </div>
               );
             })}
           </div>
@@ -333,28 +341,60 @@ export function MessagesRightPanel({
 
   const Icon = iconMap[agent.icon] || BookOpen;
   const isFav = favorites.includes(agent.id);
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [conversationId, setConversationId] = useState<string | undefined>(undefined);
+  const [showHistory, setShowHistory] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  // Initialize with welcome message when agent changes
+  const {
+    sessions,
+    currentSessionId,
+    addMessage: addStoreMessage,
+    createSession,
+    selectSession,
+    deleteSession,
+    ensureSessionForAgent
+  } = useConversationStore();
+
+  // 切换智能体时，复用该智能体最近的会话，否则新建
   useEffect(() => {
-    const welcomeContent = agent.responses[0] || `您好，我是${agent.name}！${agent.description}。有什么可以帮您的吗？`;
-    const welcomeMsg: ChatMessage = {
-      id: generateId(),
-      role: 'assistant',
-      content: welcomeContent,
-      timestamp: new Date(),
-      agentId: agent.id,
-      followUpOptions: agent.tips?.slice(0, 3) || getDefaultFollowUpOptions(welcomeContent)
-    };
-    setMessages([welcomeMsg]);
+    ensureSessionForAgent(agentId);
     setConversationId(undefined);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- agent object identity changes too frequently; agentId is the stable trigger
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [agentId]);
+
+  const currentSession = sessions.find(s => s.id === currentSessionId) || null;
+
+  const agentSessions = sessions
+    .filter(s => s.agentId === agentId)
+    .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+
+  // 当前会话的消息用于本地渲染（过滤系统消息，仅保留 user/assistant）
+  const messages: ChatMessage[] = useMemo(() => currentSession
+    ? currentSession.messages
+        .filter((msg): msg is ConversationMessage & { role: 'user' | 'assistant' } => msg.role !== 'system')
+        .map(msg => ({
+          id: msg.id,
+          role: msg.role,
+          content: msg.content,
+          timestamp: msg.timestamp,
+          agentId: currentSession.agentId,
+          followUpOptions: msg.metadata?.followUpOptions
+        }))
+    : [], [currentSession]);
+
+  // 空会话自动添加欢迎语
+  useEffect(() => {
+    if (currentSession && currentSession.messages.length === 0) {
+      const welcomeContent = agent.responses[0] || `您好，我是${agent.name}！${agent.description}。有什么可以帮您的吗？`;
+      addStoreMessage(currentSession.id, 'assistant', welcomeContent, {
+        followUpOptions: agent.tips?.slice(0, 3) || getDefaultFollowUpOptions(welcomeContent)
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentSessionId, agentId]);
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -515,19 +555,11 @@ export function MessagesRightPanel({
     );
   };
 
-  const handleSend = useCallback(async () => {
+  const handleSend = async () => {
     const text = inputValue.trim();
-    if (!text) return;
+    if (!text || !currentSession) return;
 
-    const userMsg: ChatMessage = {
-      id: generateId(),
-      role: 'user',
-      content: text,
-      timestamp: new Date(),
-      agentId: agent.id
-    };
-
-    setMessages(prev => [...prev, userMsg]);
+    addStoreMessage(currentSession.id, 'user', text);
     setInputValue('');
     setIsTyping(true);
 
@@ -545,32 +577,22 @@ export function MessagesRightPanel({
         setConversationId(response.conversationId);
       }
 
-      const aiMsg: ChatMessage = {
-        id: generateId(),
-        role: 'assistant',
-        content: response.content,
-        timestamp: new Date(),
-        agentId: agent.id,
-        followUpOptions: response.followUpOptions?.length
-          ? response.followUpOptions.slice(0, 3)
-          : generateFollowUpOptions(text, response.content)
-      };
-      setMessages(prev => [...prev, aiMsg]);
+      const followUpOptions = response.followUpOptions?.length
+        ? response.followUpOptions.slice(0, 3)
+        : generateFollowUpOptions(text, response.content);
+
+      addStoreMessage(currentSession.id, 'assistant', response.content, { followUpOptions });
     } catch (error) {
       console.error('Chat API error:', error);
-      const aiMsg: ChatMessage = {
-        id: generateId(),
-        role: 'assistant',
-        content: `抱歉，我暂时无法回答您的问题。错误信息：${error instanceof Error ? error.message : '未知错误'}`,
-        timestamp: new Date(),
-        agentId: agent.id
-      };
-      setMessages(prev => [...prev, aiMsg]);
+      addStoreMessage(
+        currentSession.id,
+        'assistant',
+        `抱歉，我暂时无法回答您的问题。错误信息：${error instanceof Error ? error.message : '未知错误'}`
+      );
     } finally {
       setIsTyping(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- conversationId and generateFollowUpOptions are intentionally excluded to keep callback stable
-  }, [inputValue, agent]);
+  };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -584,7 +606,7 @@ export function MessagesRightPanel({
   };
 
   return (
-    <div className="flex flex-col flex-1 min-h-0 bg-[#F5F6F7]">
+    <div className="relative flex flex-col flex-1 min-h-0 bg-[#F5F6F7]">
       {/* Header */}
       <div className="h-[52px] flex items-center justify-between px-5 bg-white border-b border-[#DEE0E3] flex-shrink-0">
         <div className="flex items-center gap-3">
@@ -602,7 +624,34 @@ export function MessagesRightPanel({
             <span className="text-[11px] text-[#8F959E]">基于集团知识库 · 实时响应</span>
           </div>
         </div>
-        <div className="flex gap-1">
+        <div className="flex items-center gap-2">
+          {/* 历史会话开关 */}
+          <button
+            onClick={() => setShowHistory(v => !v)}
+            className={`w-7 h-7 flex items-center justify-center rounded-md transition-colors ${
+              showHistory ? 'text-[#3370FF] bg-[#E8F1FF]' : 'text-[#646A73] hover:text-[#3370FF] hover:bg-[#F2F3F5]'
+            }`}
+            title={showHistory ? '关闭历史会话' : '打开历史会话'}
+          >
+            <History className="w-4 h-4" />
+          </button>
+
+          <button
+            onClick={() => createSession(agentId)}
+            className="w-7 h-7 flex items-center justify-center rounded-md text-[#3370FF] hover:bg-[#E8F1FF] transition-colors"
+            title="新建对话"
+          >
+            <Plus className="w-4 h-4" />
+          </button>
+
+          <button
+            onClick={() => currentSessionId && deleteSession(currentSessionId)}
+            className="w-7 h-7 flex items-center justify-center rounded-md text-[#8F959E] hover:text-[#F54A45] hover:bg-[#FFF2F0] transition-colors"
+            title="删除当前对话"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+
           <button
             onClick={() => onToggleFavorite(agent.id)}
             className={`w-7 h-7 flex items-center justify-center rounded-md transition-colors ${
@@ -611,12 +660,6 @@ export function MessagesRightPanel({
             title={isFav ? '取消收藏' : '收藏'}
           >
             <Star className={`w-4 h-4 ${isFav ? 'fill-[#FF7D00]' : ''}`} />
-          </button>
-          <button className="w-7 h-7 flex items-center justify-center rounded-md text-[#BBBFC4] hover:text-[#1F2329] hover:bg-[#F2F3F5] transition-colors" title="复制">
-            <Copy className="w-4 h-4" />
-          </button>
-          <button className="w-7 h-7 flex items-center justify-center rounded-md text-[#BBBFC4] hover:text-[#1F2329] hover:bg-[#F2F3F5] transition-colors" title="设置">
-            <Settings className="w-4 h-4" />
           </button>
         </div>
       </div>
@@ -708,6 +751,83 @@ export function MessagesRightPanel({
           </div>
         </div>
       </div>
+
+      {/* History Drawer */}
+      {showHistory && (
+        <>
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black/20 z-40"
+            onClick={() => setShowHistory(false)}
+          />
+          {/* Drawer */}
+          <div className="absolute right-0 top-0 bottom-0 w-[300px] bg-white shadow-xl z-50 flex flex-col animate-in slide-in-from-right duration-300">
+            <div className="h-[52px] flex items-center justify-between px-4 border-b border-[#F2F3F5] flex-shrink-0">
+              <span className="text-[15px] font-medium text-[#1F2329]">历史会话</span>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => createSession(agentId)}
+                  className="w-7 h-7 flex items-center justify-center rounded text-[#3370FF] hover:bg-[#E8F1FF] transition-colors"
+                  title="新建对话"
+                >
+                  <Plus className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => setShowHistory(false)}
+                  className="w-7 h-7 flex items-center justify-center rounded text-[#8F959E] hover:text-[#1F2329] hover:bg-[#F2F3F5] transition-colors"
+                  title="关闭"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+            <div className="flex-1 overflow-y-auto min-h-0">
+              {agentSessions.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
+                  <MessageCircle className="w-8 h-8 text-[#DEE0E3] mb-2" />
+                  <p className="text-[13px] text-[#8F959E]">暂无历史会话</p>
+                  <p className="text-[12px] text-[#BBBFC4] mt-1">点击 + 新建对话</p>
+                </div>
+              ) : (
+                <div className="flex flex-col py-2">
+                  {agentSessions.map(session => (
+                    <div
+                      key={session.id}
+                      onClick={() => { selectSession(session.id); setShowHistory(false); }}
+                      className={`
+                        group flex items-start gap-3 px-4 py-3 cursor-pointer transition-colors
+                        ${currentSessionId === session.id ? 'bg-[#E8F1FF]' : 'hover:bg-[#F8F9FA]'}
+                      `}
+                    >
+                      <MessageCircle className={`w-4 h-4 mt-0.5 flex-shrink-0 ${currentSessionId === session.id ? 'text-[#3370FF]' : 'text-[#8F959E]'}`} />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className={`text-[13px] truncate ${currentSessionId === session.id ? 'text-[#3370FF] font-medium' : 'text-[#1F2329]'}`}>
+                            {session.title}
+                          </span>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); deleteSession(session.id); }}
+                            className="opacity-0 group-hover:opacity-100 flex-shrink-0 w-5 h-5 flex items-center justify-center rounded text-[#8F959E] hover:text-[#F54A45] hover:bg-[#FFF2F0] transition-all"
+                            title="删除"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="text-[11px] text-[#8F959E]">{session.messages.length} 条消息</span>
+                          <span className="text-[11px] text-[#BBBFC4]">
+                            {new Date(session.updatedAt).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }

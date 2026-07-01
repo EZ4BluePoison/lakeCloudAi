@@ -14,6 +14,8 @@ interface SidebarProps {
   onModuleChange: (module: NavModule) => void;
   onKnowledgeSubChange: (sub: KnowledgeSubLevel) => void;
   addedAgentCount: number;
+  collapsed?: boolean;
+  onToggleCollapse?: () => void;
 }
 
 interface NavItem {
@@ -382,9 +384,8 @@ function EditStructureDialog({ open, onClose, tree, onTreeChange }: {
 
 // ===== Sidebar Component =====
 
-export default function Sidebar({ activeModule, activeKnowledgeSub, onModuleChange, onKnowledgeSubChange, addedAgentCount }: SidebarProps) {
+export default function Sidebar({ activeModule, activeKnowledgeSub, onModuleChange, onKnowledgeSubChange, addedAgentCount, collapsed = false, onToggleCollapse }: SidebarProps) {
   const [kbExpanded, setKbExpanded] = useState(false);
-  const [aboutOpen, setAboutOpen] = useState(false);
   const [structureEditOpen, setStructureEditOpen] = useState(false);
   const [orgTree, setOrgTree] = useState<OrgNode[]>(initialOrgTree as OrgNode[]);
 
@@ -443,15 +444,21 @@ export default function Sidebar({ activeModule, activeKnowledgeSub, onModuleChan
   }, []);
 
   return (
-    <aside className="w-[240px] flex-shrink-0 flex flex-col bg-[#F5F6F7] border-r border-[#DEE0E3] z-10">
-      {/* Header */}
-      <div className="h-[52px] flex items-center px-4 gap-3 flex-shrink-0">
-        <button onClick={() => setAboutOpen(true)} className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+    <aside className={`${collapsed ? 'w-[64px]' : 'w-[240px]'} flex-shrink-0 flex flex-col bg-[#F5F6F7] border-r border-[#DEE0E3] z-10 transition-all duration-300`}>
+      {/* Header — 点击 Logo 展开/收起侧边栏 */}
+      <div className={`h-[52px] flex items-center flex-shrink-0 ${collapsed ? 'justify-center px-2' : 'px-4'}`}>
+        <button
+          onClick={onToggleCollapse}
+          className={`flex items-center hover:opacity-80 transition-opacity ${collapsed ? 'justify-center' : 'gap-2'}`}
+          title={collapsed ? '展开侧边栏' : '收起侧边栏'}
+        >
           <img src="/logo-taihu.png" alt="Logo" className="w-9 h-9 object-contain flex-shrink-0" />
-          <div className="flex flex-col items-start">
-            <span className="text-sm font-semibold text-[#1F2329] leading-tight">太湖云AI企业智能体</span>
-            <span className="text-[10px] text-[#8F959E] leading-tight">AI 智能平台</span>
-          </div>
+          {!collapsed && (
+            <div className="flex flex-col items-start">
+              <span className="text-sm font-semibold text-[#1F2329] leading-tight">太湖云AI企业智能体</span>
+              <span className="text-[10px] text-[#8F959E] leading-tight">AI 智能平台</span>
+            </div>
+          )}
         </button>
       </div>
 
@@ -460,7 +467,9 @@ export default function Sidebar({ activeModule, activeKnowledgeSub, onModuleChan
         {/* Super Agent — Special top entry */}
         <button
           onClick={() => onModuleChange('superAgent')}
-          className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 ${
+          className={`w-full flex items-center rounded-xl text-sm font-semibold transition-all duration-200 ${
+            collapsed ? 'justify-center px-2 py-2.5' : 'gap-2.5 px-3 py-2.5'
+          } ${
             activeModule === 'superAgent'
               ? 'text-white shadow-md'
               : 'text-[#1F2329] hover:shadow-sm'
@@ -472,9 +481,13 @@ export default function Sidebar({ activeModule, activeKnowledgeSub, onModuleChan
           }
         >
           <Cloud className={`w-[18px] h-[18px] flex-shrink-0 ${activeModule === 'superAgent' ? 'text-white' : 'text-[#3370FF]'}`} />
-          <span className="flex-1 text-left">超级助手</span>
-          {activeModule !== 'superAgent' && (
-            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[#FF7D00] text-white font-bold">AI</span>
+          {!collapsed && (
+            <>
+              <span className="flex-1 text-left">超级助手</span>
+              {activeModule !== 'superAgent' && (
+                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[#FF7D00] text-white font-bold">AI</span>
+              )}
+            </>
           )}
         </button>
 
@@ -488,17 +501,22 @@ export default function Sidebar({ activeModule, activeKnowledgeSub, onModuleChan
               key={item.id}
               onClick={() => onModuleChange(item.id)}
               className={`
-                flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150
+                flex items-center rounded-lg text-sm font-medium transition-all duration-150
+                ${collapsed ? 'justify-center px-2 py-2' : 'gap-2.5 px-3 py-2'}
                 ${isActive ? 'bg-[#E8F1FF] text-[#3370FF]' : 'text-[#646A73] hover:bg-[#EBEBEB] hover:text-[#1F2329]'}
               `}
             >
               <Icon className="w-[18px] h-[18px] flex-shrink-0" />
-              <span className="flex-1 text-left">{item.label}</span>
-              {/* Badge: agentPlaza shows plaza count, messages shows addedAgentCount */}
-              {(item.id === 'agentPlaza' || (item.id === 'messages' && addedAgentCount > 0)) && (
-                <span className={`${item.id === 'agentPlaza' ? 'bg-[#00B96B]' : 'bg-[#F54A45]'} text-white text-[10px] font-medium px-1.5 py-0.5 rounded-full min-w-[18px] text-center`}>
-                  {item.id === 'agentPlaza' ? plazaAgents.length : addedAgentCount}
-                </span>
+              {!collapsed && (
+                <>
+                  <span className="flex-1 text-left">{item.label}</span>
+                  {/* Badge: agentPlaza shows plaza count, messages shows addedAgentCount */}
+                  {(item.id === 'agentPlaza' || (item.id === 'messages' && addedAgentCount > 0)) && (
+                    <span className={`${item.id === 'agentPlaza' ? 'bg-[#00B96B]' : 'bg-[#F54A45]'} text-white text-[10px] font-medium px-1.5 py-0.5 rounded-full min-w-[18px] text-center`}>
+                      {item.id === 'agentPlaza' ? plazaAgents.length : addedAgentCount}
+                    </span>
+                  )}
+                </>
               )}
             </button>
           );
@@ -508,6 +526,10 @@ export default function Sidebar({ activeModule, activeKnowledgeSub, onModuleChan
         <div className="mt-1">
           <button
             onClick={() => {
+              if (collapsed) {
+                onModuleChange('knowledgeBase');
+                return;
+              }
               setKbExpanded(!kbExpanded);
               if (!isKbActive) {
                 onModuleChange('knowledgeBase');
@@ -517,28 +539,33 @@ export default function Sidebar({ activeModule, activeKnowledgeSub, onModuleChan
               }
             }}
             className={`
-              w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150
+              w-full flex items-center rounded-lg text-sm font-medium transition-all duration-150
+              ${collapsed ? 'justify-center px-2 py-2' : 'gap-2.5 px-3 py-2'}
               ${isKbActive ? 'bg-[#E8F1FF] text-[#3370FF]' : 'text-[#646A73] hover:bg-[#EBEBEB] hover:text-[#1F2329]'}
             `}
           >
             <BookOpen className="w-[18px] h-[18px] flex-shrink-0" />
-            <span className="flex-1 text-left">知识库</span>
-            {/* Edit structure button - only visible when knowledge base is active */}
-            {isKbActive && (
-              <button
-                onClick={(e) => { e.stopPropagation(); setStructureEditOpen(true); }}
-                className="w-6 h-6 flex items-center justify-center rounded text-[#3370FF] hover:bg-[#D0E0FF] transition-colors"
-                title="编辑知识库结构"
-              >
-                <Settings2 className="w-3.5 h-3.5" />
-              </button>
+            {!collapsed && (
+              <>
+                <span className="flex-1 text-left">知识库</span>
+                {/* Edit structure button - only visible when knowledge base is active */}
+                {isKbActive && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setStructureEditOpen(true); }}
+                    className="w-6 h-6 flex items-center justify-center rounded text-[#3370FF] hover:bg-[#D0E0FF] transition-colors"
+                    title="编辑知识库结构"
+                  >
+                    <Settings2 className="w-3.5 h-3.5" />
+                  </button>
+                )}
+                <ChevronDown
+                  className={`w-3.5 h-3.5 transition-transform duration-200 ${kbExpanded ? 'rotate-180' : ''}`}
+                />
+              </>
             )}
-            <ChevronDown
-              className={`w-3.5 h-3.5 transition-transform duration-200 ${kbExpanded ? 'rotate-180' : ''}`}
-            />
           </button>
 
-          {kbExpanded && (
+          {!collapsed && kbExpanded && (
             <div className="mt-0.5 pl-1">
               {orgTree.map((root) => (
                 <OrgTreeNode
@@ -563,46 +590,30 @@ export default function Sidebar({ activeModule, activeKnowledgeSub, onModuleChan
             <button
               onClick={() => onModuleChange('workbench')}
               className={`
-                flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150 w-full
+                flex items-center rounded-lg text-sm font-medium transition-all duration-150 w-full
+                ${collapsed ? 'justify-center px-2 py-2' : 'gap-2.5 px-3 py-2'}
                 ${isWbActive ? 'bg-[#E8F1FF] text-[#3370FF]' : 'text-[#646A73] hover:bg-[#EBEBEB] hover:text-[#1F2329]'}
               `}
             >
               <wb.icon className="w-[18px] h-[18px] flex-shrink-0" />
-              <span className="flex-1 text-left">{wb.label}</span>
+              {!collapsed && <span className="flex-1 text-left">{wb.label}</span>}
             </button>
           );
         })()}
       </nav>
 
       {/* User Footer */}
-      <div className="h-[52px] flex items-center px-3 gap-2.5 border-t border-[#DEE0E3] flex-shrink-0">
+      <div className={`h-[52px] flex items-center border-t border-[#DEE0E3] flex-shrink-0 ${collapsed ? 'justify-center px-2' : 'px-3 gap-2.5'}`}>
         <div className="w-8 h-8 rounded-full bg-[#3370FF] flex items-center justify-center text-white text-xs font-medium flex-shrink-0">
           张
         </div>
-        <div className="flex-1 min-w-0">
-          <div className="text-[13px] text-[#1F2329] font-medium truncate">张经理</div>
-          <div className="text-[11px] text-[#8F959E] truncate">数字化部 · 在线</div>
-        </div>
-      </div>
-
-      {/* About Dialog */}
-      <Dialog open={aboutOpen} onOpenChange={setAboutOpen}>
-        <DialogContent className="bg-white border-[#DEE0E3] text-[#1F2329] max-w-sm">
-          <DialogHeader className="text-center">
-            <img src="/logo-taihu.png" alt="Logo" className="mx-auto w-16 h-16 object-contain mb-3" />
-            <DialogTitle className="text-lg font-semibold text-[#3370FF]">太湖云AI企业智能体</DialogTitle>
-            <DialogDescription className="text-[#8F959E] text-sm mt-2">企业级 AI 智能工作台</DialogDescription>
-          </DialogHeader>
-          <div className="text-[13px] text-[#8F959E] space-y-2 py-2">
-            <p>版本：v2.1.0</p>
-            <p>构建时间：2026-06-23</p>
-            <p>技术栈：React + TypeScript + Tailwind CSS</p>
+        {!collapsed && (
+          <div className="flex-1 min-w-0">
+            <div className="text-[13px] text-[#1F2329] font-medium truncate">张经理</div>
+            <div className="text-[11px] text-[#8F959E] truncate">数字化部 · 在线</div>
           </div>
-          <DialogFooter>
-            <Button onClick={() => setAboutOpen(false)} className="bg-[#3370FF] text-white font-medium hover:bg-[#245BDB]">确定</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        )}
+      </div>
 
       {/* Edit Structure Dialog */}
       <EditStructureDialog

@@ -16,7 +16,11 @@
     </sql>
 
     <select id="findByUserId" resultMap="BaseResultMap">
-        SELECT <include refid="Base_Column_List"/> FROM conversations WHERE user_id = #{userId}
+        SELECT <include refid="Base_Column_List"/> FROM conversations WHERE user_id = #{userId} ORDER BY updated_at DESC
+    </select>
+
+    <select id="findByUserIdAndAgentId" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/> FROM conversations WHERE user_id = #{userId} AND agent_id = #{agentId} ORDER BY updated_at DESC
     </select>
 
     <select id="findById" resultMap="BaseResultMap">
