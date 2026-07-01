@@ -1,9 +1,11 @@
 /**
  * BFF Service 抽象层
- * 
+ *
  * 当前为 mock 实现，所有方法均返回本地模拟数据。
  * 后续替换原则：保持接口签名不变，仅把方法体替换为 fetch('/api/v1/...') 调用。
  */
+
+const API_BASE_URL = 'http://localhost:8080';
 
 import { createModelService } from './modelService';
 import { getAgentPrompt } from '@/data/agentPrompts';
@@ -216,35 +218,76 @@ export interface UploadDocumentParams {
 
 class BffKnowledgeService {
   async listDatasets(): Promise<BffDataset[]> {
-    await delay(200);
-    return [...mockDatasets];
+    const res = await fetch(`${API_BASE_URL}/api/console/knowledge/datasets`);
+    if (!res.ok) throw new Error(`listDatasets failed: ${res.status}`);
+    return res.json();
   }
 
-  async listDocuments(datasetId?: string): Promise<BffDocument[]> {
-    await delay(200);
-    if (!datasetId) return [...mockDocuments];
-    return mockDocuments.filter(d => d.datasetId === datasetId);
+  async createDataset(payload: { name: string; description?: string }): Promise<BffDataset> {
+    const res = await fetch(`${API_BASE_URL}/api/console/knowledge/datasets`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error(`createDataset failed: ${res.status}`);
+    return res.json();
+  }
+
+  async updateDataset(datasetId: string, payload: Partial<BffDataset>): Promise<BffDataset> {
+    const res = await fetch(`${API_BASE_URL}/api/console/knowledge/datasets/${datasetId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error(`updateDataset failed: ${res.status}`);
+    return res.json();
+  }
+
+  async deleteDataset(datasetId: string): Promise<void> {
+    const res = await fetch(`${API_BASE_URL}/api/console/knowledge/datasets/${datasetId}`, {
+      method: 'DELETE',
+    });
+    if (!res.ok) throw new Error(`deleteDataset failed: ${res.status}`);
+  }
+
+  async listDocuments(datasetId: string): Promise<BffDocument[]> {
+    const res = await fetch(`${API_BASE_URL}/api/console/knowledge/datasets/${datasetId}/documents`);
+    if (!res.ok) throw new Error(`listDocuments failed: ${res.status}`);
+    return res.json();
   }
 
   async uploadDocument(params: UploadDocumentParams): Promise<BffDocument> {
-    await delay(600);
-    const doc: BffDocument = {
-      id: `doc-${Date.now()}`,
-      datasetId: params.datasetId,
-      name: params.file.name,
-      size: `${(params.file.size / 1024).toFixed(1)} KB`,
-      status: 'uploaded',
-      statusText: '已上传，等待解析',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    console.log('[BFF Mock] upload document', doc);
-    return doc;
+    const formData = new FormData();
+    formData.append('file', params.file);
+    const res = await fetch(`${API_BASE_URL}/api/console/knowledge/datasets/${params.datasetId}/documents/file`, {
+      method: 'POST',
+      body: formData,
+    });
+    if (!res.ok) throw new Error(`uploadDocument failed: ${res.status}`);
+    return res.json();
   }
 
-  async deleteDocument(documentId: string): Promise<void> {
-    await delay(200);
-    console.log('[BFF Mock] delete document', documentId);
+  async deleteDocument(datasetId: string, documentId: string): Promise<void> {
+    const res = await fetch(`${API_BASE_URL}/api/console/knowledge/datasets/${datasetId}/documents/${documentId}`, {
+      method: 'DELETE',
+    });
+    if (!res.ok) throw new Error(`deleteDocument failed: ${res.status}`);
+  }
+
+  async updateDocument(datasetId: string, documentId: string, payload: Partial<BffDocument>): Promise<BffDocument> {
+    const res = await fetch(`${API_BASE_URL}/api/console/knowledge/datasets/${datasetId}/documents/${documentId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error(`updateDocument failed: ${res.status}`);
+    return res.json();
+  }
+
+  async downloadDocument(datasetId: string, documentId: string): Promise<Blob> {
+    const res = await fetch(`${API_BASE_URL}/api/console/knowledge/datasets/${datasetId}/documents/${documentId}/download`);
+    if (!res.ok) throw new Error(`downloadDocument failed: ${res.status}`);
+    return res.blob();
   }
 
   async getDocumentChunks(documentId: string): Promise<BffDocumentChunk[]> {
