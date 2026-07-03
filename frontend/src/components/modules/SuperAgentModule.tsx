@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import type { ChatPanelMessage as ChatMessage } from '@/types';
 import { sendMessage, sendMessageToAgent, type RoutedAgent } from '@/services/superAgentService';
+import { VoiceInputButton } from '@/components/ui/VoiceInputButton';
 
 // ====== Main Component ======
 
@@ -198,6 +199,10 @@ export default function SuperAgentModule() {
                   className="flex-1 bg-transparent text-[15px] text-[#1F2329] placeholder:text-[#BBBFC4] resize-none outline-none min-h-[28px] max-h-[120px] py-1 leading-relaxed"
                   style={{ fieldSizing: 'content' }}
                 />
+                <VoiceInputButton
+                  onResult={(text) => setInputValue((prev) => (prev ? `${prev} ${text}` : text))}
+                  size="md"
+                />
                 <button
                   onClick={() => handleSend()}
                   disabled={!inputValue.trim() || isTyping}
@@ -359,6 +364,10 @@ export default function SuperAgentModule() {
                     rows={1}
                     className="flex-1 bg-transparent text-[14px] text-[#1F2329] placeholder:text-[#BBBFC4] resize-none outline-none min-h-[24px] max-h-[100px] py-1"
                     style={{ fieldSizing: 'content' }}
+                  />
+                  <VoiceInputButton
+                    onResult={(text) => setInputValue((prev) => (prev ? `${prev} ${text}` : text))}
+                    size="md"
                   />
                   <button
                     onClick={() => handleSend()}

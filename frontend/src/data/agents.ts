@@ -685,7 +685,7 @@ export const dailyUsage: DailyUsage[] = [
   { date: '6/16', calls: 1658, users: 201, avgTime: 1.8, successRate: 97.9 }
 ];
 
-/** Scene categories for classification */
+/** Scene categories for classification (aligned with backend application modes) */
 export const sceneCategories = [
-  '全部', '行政类', '财务类', '商务类', '管控类', '运营类', '市政类', '金融类', '客服类'
+  '全部', '聊天助手', '工作流'
 ];

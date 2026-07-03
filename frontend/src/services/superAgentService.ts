@@ -1,4 +1,3 @@
-import { createModelService } from './modelService';
 import { sendMessage as sendAgentMessage } from './chatService';
 import { plazaAgents, myAgents } from '@/data/agents';
 
@@ -33,65 +32,7 @@ const routableAgents: RoutedAgent[] = [
   })),
 ];
 
-/** 用 LLM 做意图识别（带超时，失败不影响主流程） */
-async function llmClassifyIntent(query: string, timeoutMs = 3000): Promise<RoutedAgent | null> {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-
-  try {
-    // 统一走国联 AI 80B 模型（Qwen3-Next）做意图识别
-    const modelService = createModelService({
-      provider: 'wuxidata',
-      model: '/model/Qwen3-Next',
-      apiEndpoint: 'http://localhost:8080',
-      temperature: 0.3,
-      topP: 0.9,
-      maxTokens: 256,
-      presencePenalty: 0,
-      frequencyPenalty: 0,
-    });
-
-    const agentOptions = routableAgents
-      .map(
-        (a, idx) =>
-          `${idx + 1}. ${a.agentId} | ${a.agentName} | ${a.category} | ${a.description}`
-      )
-      .join('\n');
-
-    const systemPrompt = `你是国联集团「太湖云 AI 超级助手」的意图识别模块。请根据用户问题，从候选智能体中选择最合适的一个，只输出 JSON。`;
-
-    const userPrompt = `候选智能体列表：
-${agentOptions}
-
-用户问题："""${query}"""
-
-请输出 JSON（不要解释）：
-{
-  "agentId": "选中的 agentId",
-  "reason": "一句话理由"
-}`;
-
-    const response = await modelService.chat([
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: userPrompt },
-    ]);
-
-    const content = response.content || '';
-    const match = content.match(/\{[\s\S]*?\}/);
-    if (!match) return null;
-
-    const result = JSON.parse(match[0]) as { agentId?: string };
-    const agent = routableAgents.find(a => a.agentId === result.agentId);
-    return agent || null;
-  } catch (error) {
-    console.warn('[SuperAgent] LLM 意图识别失败，使用规则兜底:', error);
-    return null;
-  } finally {
-    clearTimeout(timeoutId);
-  }
-}
-
-/** 基于关键词的规则路由（兜底） */
+/** 基于关键词的规则路由 */
 export function regexClassifyIntent(query: string): RoutedAgent {
   const q = query.toLowerCase();
 
@@ -199,14 +140,12 @@ export function regexClassifyIntent(query: string): RoutedAgent {
   return routableAgents.find(a => a.agentId === 'plaza-1')!;
 }
 
-/** 意图识别：优先 LLM，失败或超时时用规则兜底 */
+/** 意图识别：基于关键词规则路由 */
 export async function classifyIntent(query: string): Promise<RoutedAgent> {
   // 临时规则：以「制度」结尾的问题（如「新员工制度」）直接走知识问答助手
   if (/制度\s*$/.test(query.trim())) {
     return routableAgents.find(a => a.agentId === 'plaza-1')!;
   }
-  const llmResult = await llmClassifyIntent(query);
-  if (llmResult) return llmResult;
   return regexClassifyIntent(query);
 }
 

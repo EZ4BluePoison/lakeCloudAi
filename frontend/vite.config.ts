@@ -9,6 +9,13 @@ export default defineConfig({
   plugins: [inspectAttr(), react()],
   server: {
     port: 3000,
+    proxy: {
+      '/knowledge-api': {
+        target: 'http://10.110.10.33:9090',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/knowledge-api/, ''),
+      },
+    },
   },
   resolve: {
     alias: {

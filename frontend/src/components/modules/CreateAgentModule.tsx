@@ -11,15 +11,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { availableLLMs } from '@/data/agentConfigs';
-import { bffService, type BffDataset } from '@/services/bffService';
+import { bffService, type BffDataset, type BffModelTypeItem } from '@/services/bffService';
+import { mapApplicationToMyAgent } from '@/services/agentService';
 import type { MyAgent } from '@/types';
 
 export interface CreateAgentForm {
   name: string;
   description: string;
   prompt: string;
-  provider: string;
   model: string;
   knowledgeBaseId: string;
 }
@@ -36,13 +35,13 @@ export function CreateAgentModule({ initialPrompt = '', onBack, onSave }: Create
     name: '',
     description: '',
     prompt: initialPrompt,
-    provider: availableLLMs[0].provider,
-    model: availableLLMs[0].models[0],
+    model: '',
     knowledgeBaseId: '',
   });
 
   const [errors, setErrors] = useState<Partial<Record<keyof CreateAgentForm, string>>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [models, setModels] = useState<BffModelTypeItem[]>([]);
 
   useEffect(() => {
     bffService.knowledge.listDatasets()
@@ -51,9 +50,14 @@ export function CreateAgentModule({ initialPrompt = '', onBack, onSave }: Create
         if (list[0]) setForm(prev => ({ ...prev, knowledgeBaseId: list[0].id }));
       })
       .catch(() => setDatasets([]));
-  }, []);
 
-  const selectedProvider = availableLLMs.find(p => p.provider === form.provider) ?? availableLLMs[0];
+    bffService.model.listModelsByType('llm')
+      .then(list => {
+        setModels(list);
+        if (list[0]) setForm(prev => ({ ...prev, model: list[0].value }));
+      })
+      .catch(() => setModels([]));
+  }, []);
 
   const validate = (): boolean => {
     const nextErrors: Partial<Record<keyof CreateAgentForm, string>> = {};
@@ -66,28 +70,28 @@ export function CreateAgentModule({ initialPrompt = '', onBack, onSave }: Create
   const handleSubmit = async () => {
     if (!validate()) return;
     setIsSubmitting(true);
-    await new Promise(r => setTimeout(r, 400));
 
-    const now = new Date().toISOString();
-    const newAgent: MyAgent = {
-      id: `my-${Date.now()}`,
-      name: form.name.trim(),
-      icon: 'Bot',
-      iconBg: 'bg-[#3370FF]',
-      description: form.description.trim(),
-      permission: 'personal',
-      creator: '当前用户',
-      department: '本部门',
-      createdAt: now,
-      callCount: 0,
-      provider: form.provider,
-      model: form.model,
-      systemPrompt: form.prompt.trim(),
-      knowledgeBaseId: form.knowledgeBaseId || undefined,
-    };
+    try {
+      const app = await bffService.application.createApplication({
+        name: form.name.trim(),
+        description: form.description.trim(),
+        datasetId: form.knowledgeBaseId || undefined,
+        model: form.model,
+        prompt: form.prompt.trim(),
+      });
 
-    onSave(newAgent);
-    setIsSubmitting(false);
+      const newAgent = mapApplicationToMyAgent(app);
+      newAgent.model = form.model;
+      newAgent.systemPrompt = form.prompt.trim();
+      newAgent.knowledgeBaseId = form.knowledgeBaseId || undefined;
+
+      onSave(newAgent);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '创建应用失败';
+      setErrors(prev => ({ ...prev, name: message }));
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const updateField = <K extends keyof CreateAgentForm>(key: K, value: CreateAgentForm[K]) => {
@@ -173,44 +177,18 @@ export function CreateAgentModule({ initialPrompt = '', onBack, onSave }: Create
               <Bot className="w-4 h-4 text-[#3370FF]" />
               使用模型
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label className="text-xs text-[#8F959E]">模型厂商</Label>
-                <Select
-                  value={form.provider}
-                  onValueChange={v => {
-                    const provider = availableLLMs.find(p => p.provider === v)!;
-                    setForm(prev => ({ ...prev, provider: v, model: provider.models[0] }));
-                  }}
-                >
-                  <SelectTrigger className="h-10">
-                    <SelectValue placeholder="选择厂商" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availableLLMs.map(p => (
-                      <SelectItem key={p.provider} value={p.provider}>
-                        {p.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label className="text-xs text-[#8F959E]">模型</Label>
-                <Select value={form.model} onValueChange={v => updateField('model', v)}>
-                  <SelectTrigger className="h-10">
-                    <SelectValue placeholder="选择模型" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {selectedProvider.models.map(m => (
-                      <SelectItem key={m} value={m}>
-                        {m}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
+            <Select value={form.model} onValueChange={v => updateField('model', v)}>
+              <SelectTrigger className="h-10">
+                <SelectValue placeholder={models.length === 0 ? '暂无可用模型' : '选择模型'} />
+              </SelectTrigger>
+              <SelectContent>
+                {models.map(m => (
+                  <SelectItem key={m.value} value={m.value}>
+                    {m.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="space-y-3">

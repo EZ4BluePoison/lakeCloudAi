@@ -19,7 +19,7 @@ import type { NavModule, KnowledgeSubLevel, FileNode, MyAgent } from '@/types';
 export default function App() {
   // Module state
   const [activeModule, setActiveModule] = useState<NavModule>('superAgent');
-  const [activeKnowledgeSub, setActiveKnowledgeSub] = useState<KnowledgeSubLevel>('group');
+  const [activeKnowledgeSub, setActiveKnowledgeSub] = useState<KnowledgeSubLevel | null>('group');
 
   // Create agent pending prompt from prompt repo
   const [pendingPrompt, setPendingPrompt] = useState('');
@@ -36,6 +36,7 @@ export default function App() {
 
   // Knowledge base module state
   const [selectedFileNode, setSelectedFileNode] = useState<FileNode | null>(null);
+  const [kbRefreshToken, setKbRefreshToken] = useState(0);
 
   // Sidebar & middle panel collapse state
   // 默认进入超级助手页面，第一栏展开
@@ -69,6 +70,12 @@ export default function App() {
   const handleKnowledgeSubChange = useCallback((sub: KnowledgeSubLevel) => {
     setActiveKnowledgeSub(sub);
     setActiveModule('knowledgeBase');
+    setSelectedFileNode(null);
+  }, []);
+
+  const handleDatasetDeleted = useCallback(() => {
+    setKbRefreshToken(v => v + 1);
+    setActiveKnowledgeSub(null);
     setSelectedFileNode(null);
   }, []);
 
@@ -116,6 +123,7 @@ export default function App() {
         addedAgentCount={addedAgents.length}
         collapsed={isSidebarCollapsed}
         onToggleCollapse={() => setIsSidebarCollapsed(v => !v)}
+        refreshToken={kbRefreshToken}
       />
 
       {/* Middle Panel - Collapsible for Plaza */}
@@ -176,13 +184,16 @@ export default function App() {
                 {/* ========== Knowledge Base ========== */}
                 {activeModule === 'knowledgeBase' && (
                   <KnowledgeBaseMiddlePanel
-                    deptPath={activeKnowledgeSub}
+                    deptPath={activeKnowledgeSub || ''}
                     selectedNodeId={selectedFileNode?.id || null}
                     onSelectNode={(node) => {
-                      if (node.type === 'file') {
+                      if (!node) {
+                        setSelectedFileNode(null);
+                      } else if (node.type === 'file') {
                         setSelectedFileNode(node);
                       }
                     }}
+                    onDatasetDeleted={handleDatasetDeleted}
                   />
                 )}
               </>
@@ -335,7 +346,7 @@ export default function App() {
               transition={{ duration: 0.2 }}
               className="flex-1 flex flex-col"
             >
-              <KnowledgeBaseRightPanel file={selectedFileNode} deptPath={activeKnowledgeSub} />
+              <KnowledgeBaseRightPanel file={selectedFileNode} deptPath={activeKnowledgeSub || ''} />
             </motion.div>
           )}
         </AnimatePresence>

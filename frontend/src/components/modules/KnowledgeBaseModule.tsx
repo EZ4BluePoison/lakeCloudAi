@@ -53,21 +53,36 @@ function DeleteConfirmDialog({ open, onClose, onConfirm, itemName }: { open: boo
   );
 }
 
-function UploadDocumentDialog({ open, datasetId, onClose, onUploaded }: { open: boolean; datasetId: string; onClose: () => void; onUploaded: () => void; }) {
-  const [file, setFile] = useState<File | null>(null);
+function UploadDocumentDialog({ open, datasetId, onClose, onUploaded }: { open: boolean; datasetId: string; onClose: () => void; onUploaded: (docs: BffDocument[]) => void; }) {
+  const [files, setFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (!open) { setFile(null); setUploading(false); }
+    if (!open) { setFiles([]); setUploading(false); }
   }, [open]);
 
+  const handleFilesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selected = Array.from(e.target.files || []);
+    if (selected.length === 0) return;
+    setFiles(prev => {
+      const existing = new Set(prev.map(f => f.name));
+      return [...prev, ...selected.filter(f => !existing.has(f.name))];
+    });
+    // 允许重复选择同一文件
+    e.target.value = '';
+  };
+
+  const removeFile = (index: number) => {
+    setFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
   const handleUpload = async () => {
-    if (!file) return;
+    if (files.length === 0) return;
     setUploading(true);
     try {
-      await bffService.knowledge.uploadDocument({ datasetId, file });
-      onUploaded();
+      const docs = await bffService.knowledge.uploadDocuments({ datasetId, files });
+      onUploaded(docs);
       onClose();
     } finally {
       setUploading(false);
@@ -78,24 +93,28 @@ function UploadDocumentDialog({ open, datasetId, onClose, onUploaded }: { open: 
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
       <DialogContent className="bg-white border-[#DEE0E3] text-[#1F2329] max-w-sm">
         <DialogHeader><DialogTitle className="text-[15px] font-semibold">上传文件</DialogTitle></DialogHeader>
-        <div className="space-y-3">
-          <input ref={inputRef} type="file" onChange={e => setFile(e.target.files?.[0] || null)} className="hidden" />
+        <div className="space-y-3 max-h-[320px] overflow-y-auto">
+          <input ref={inputRef} type="file" multiple onChange={handleFilesChange} className="hidden" />
           <button
             onClick={() => inputRef.current?.click()}
             className="w-full flex flex-col items-center justify-center gap-2 py-6 rounded-xl border-2 border-dashed border-[#DEE0E3] hover:border-[#3370FF] hover:bg-[#E8F1FF]/30 transition-all"
           >
             <Upload className="w-8 h-8 text-[#3370FF]" />
-            <span className="text-[13px] text-[#646A73]">{file ? '重新选择文件' : '点击选择文件'}</span>
-            <span className="text-[11px] text-[#BBBFC4]">支持 .txt .md .doc .pdf .json .csv 等格式</span>
+            <span className="text-[13px] text-[#646A73]">{files.length > 0 ? '继续添加文件' : '点击选择文件'}</span>
+            <span className="text-[11px] text-[#BBBFC4]">支持 .txt .md .doc .pdf .json .csv 等格式，可多选</span>
           </button>
-          {file && (
-            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[#E8F1FF] border border-[#3370FF]/20">
-              <FileText className="w-4 h-4 text-[#3370FF] flex-shrink-0" />
-              <div className="flex-1 min-w-0">
-                <div className="text-[13px] text-[#1F2329] truncate">{file.name}</div>
-                <div className="text-[11px] text-[#8F959E]">{formatSize(file.size)}</div>
-              </div>
-              <button onClick={() => setFile(null)} className="text-[#BBBFC4] hover:text-[#F54A45]"><X className="w-4 h-4" /></button>
+          {files.length > 0 && (
+            <div className="space-y-2">
+              {files.map((file, idx) => (
+                <div key={`${file.name}-${idx}`} className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[#E8F1FF] border border-[#3370FF]/20">
+                  <FileText className="w-4 h-4 text-[#3370FF] flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[13px] text-[#1F2329] truncate">{file.name}</div>
+                    <div className="text-[11px] text-[#8F959E]">{formatSize(file.size)}</div>
+                  </div>
+                  <button onClick={() => removeFile(idx)} className="text-[#BBBFC4] hover:text-[#F54A45]"><X className="w-4 h-4" /></button>
+                </div>
+              ))}
             </div>
           )}
         </div>
@@ -103,10 +122,10 @@ function UploadDocumentDialog({ open, datasetId, onClose, onUploaded }: { open: 
           <Button variant="outline" onClick={onClose} className="text-[13px] border-[#DEE0E3] text-[#646A73]">取消</Button>
           <Button
             onClick={handleUpload}
-            disabled={!file || uploading}
-            className={`text-[13px] ${file && !uploading ? 'bg-[#3370FF] text-white hover:bg-[#245BDB]' : 'bg-[#F2F3F5] text-[#BBBFC4] cursor-not-allowed'}`}
+            disabled={files.length === 0 || uploading}
+            className={`text-[13px] ${files.length > 0 && !uploading ? 'bg-[#3370FF] text-white hover:bg-[#245BDB]' : 'bg-[#F2F3F5] text-[#BBBFC4] cursor-not-allowed'}`}
           >
-            {uploading ? '上传中...' : '上传'}
+            {uploading ? '上传中...' : `上传 (${files.length})`}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -143,9 +162,9 @@ function EditDatasetDialog({ open, dataset, onClose, onSave }: { open: boolean; 
 
 // ===== Lark Wiki-style Tree Item =====
 
-function TreeItem({ node, selectedId, onSelect, onDownload }: {
+function TreeItem({ node, selectedId, onSelect, onDownload, onDelete }: {
   node: FileNode; selectedId: string | null;
-  onSelect: (n: FileNode) => void; onDownload: (n: FileNode) => void;
+  onSelect: (n: FileNode) => void; onDownload: (n: FileNode) => void; onDelete?: (n: FileNode) => void;
 }) {
   const isSelected = selectedId === node.id;
   const isFolder = node.type === 'folder';
@@ -166,9 +185,9 @@ function TreeItem({ node, selectedId, onSelect, onDownload }: {
       </span>
       {!isFolder && node.status && (
         <span className={`text-[10px] px-1.5 py-0.5 rounded-full flex-shrink-0 mr-1 ${
-          node.status === 'indexed'
+          node.status === 'indexed' || node.status === 'available'
             ? 'bg-[#E6F7EF] text-[#00B96B]'
-            : node.status === 'failed'
+            : node.status === 'failed' || node.status === 'error'
             ? 'bg-[#FCE5E4] text-[#F54A45]'
             : 'bg-[#FFF2E0] text-[#FF7D00]'
         }`}>
@@ -184,6 +203,15 @@ function TreeItem({ node, selectedId, onSelect, onDownload }: {
           >
             <Download className="w-3 h-3" />
           </button>
+          {onDelete && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onDelete(node); }}
+              className="w-5 h-5 flex items-center justify-center rounded text-[#BBBFC4] hover:text-[#F54A45] hover:bg-red-50 transition-all"
+              title="删除"
+            >
+              <Trash2 className="w-3 h-3" />
+            </button>
+          )}
         </span>
       )}
     </div>
@@ -233,7 +261,7 @@ function FilePreview({ file, datasetName, content }: { file: FileNode; datasetNa
 
 // ===== Feishu-style Main Module =====
 
-export function KnowledgeBaseMiddlePanel({ deptPath, selectedNodeId, onSelectNode }: { deptPath: string; selectedNodeId: string | null; onSelectNode: (node: FileNode) => void; }) {
+export function KnowledgeBaseMiddlePanel({ deptPath, selectedNodeId, onSelectNode, onDatasetDeleted }: { deptPath: string; selectedNodeId: string | null; onSelectNode: (node: FileNode | null) => void; onDatasetDeleted?: () => void; }) {
   const [documents, setDocuments] = useState<BffDocument[]>([]);
   const [datasetInfo, setDatasetInfo] = useState<BffDataset | null>(null);
   const [loading, setLoading] = useState(false);
@@ -243,6 +271,8 @@ export function KnowledgeBaseMiddlePanel({ deptPath, selectedNodeId, onSelectNod
   const [uploadOpen, setUploadOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [deleteDatasetOpen, setDeleteDatasetOpen] = useState(false);
+  const [deleteDoc, setDeleteDoc] = useState<FileNode | null>(null);
+  const [pollingDocIds, setPollingDocIds] = useState<string[]>([]);
 
   const loadDocuments = useCallback(async () => {
     setLoading(true);
@@ -296,7 +326,25 @@ export function KnowledgeBaseMiddlePanel({ deptPath, selectedNodeId, onSelectNod
     setDeleteDatasetOpen(false);
     setDocuments([]);
     setDatasetInfo(null);
-  }, [deptPath]);
+    onDatasetDeleted?.();
+  }, [deptPath, onDatasetDeleted]);
+
+  const handleDeleteDocument = useCallback(async () => {
+    if (!deleteDoc?.documentId) return;
+    try {
+      await bffService.knowledge.deleteDocument(deptPath, deleteDoc.documentId);
+      setDeleteDoc(null);
+      // 如果删除的是当前选中的文档，取消选中
+      if (selectedNodeId === deleteDoc.id) {
+        onSelectNode(null);
+      }
+      await loadDocuments();
+    } catch (err: unknown) {
+      console.error('[KnowledgeBase] delete document failed:', err);
+      const msg = err instanceof Error ? err.message : '删除文档失败';
+      window.alert(`删除文档失败：${msg}`);
+    }
+  }, [deleteDoc, deptPath, loadDocuments, onSelectNode, selectedNodeId]);
 
   const handleUpdateDataset = useCallback(async (name: string, description: string) => {
     await bffService.knowledge.updateDataset(deptPath, { name, description });
@@ -315,11 +363,70 @@ export function KnowledgeBaseMiddlePanel({ deptPath, selectedNodeId, onSelectNod
     URL.revokeObjectURL(url);
   }, [deptPath]);
 
+  // 上传后局部轮询文档索引状态
+  const handleUploaded = useCallback((docs: BffDocument[]) => {
+    if (docs.length === 0) return;
+    // 立即刷新一次列表，确保新文件出现
+    loadDocuments();
+    // 对未处理完成的文档开启轮询
+    const unfinished = docs.filter(d => d.status !== 'available' && d.status !== 'error').map(d => d.id);
+    if (unfinished.length > 0) {
+      setPollingDocIds(unfinished);
+    }
+  }, [loadDocuments]);
+
+  useEffect(() => {
+    if (pollingDocIds.length === 0) return;
+    let attempts = 0;
+    const maxAttempts = 20;
+    const timer = setInterval(async () => {
+      attempts++;
+      try {
+        const latestDocs = await bffService.knowledge.listDocuments(deptPath);
+        setDocuments(prev => {
+          const map = new Map(prev.map(d => [d.id, d]));
+          for (const d of latestDocs) {
+            const existing = map.get(d.id);
+            if (existing) {
+              // 只更新状态和计数，保留其他字段
+              map.set(d.id, { ...existing, status: d.status, statusText: d.statusText, updatedAt: d.updatedAt });
+            } else if (pollingDocIds.includes(d.id)) {
+              map.set(d.id, d);
+            }
+          }
+          return Array.from(map.values());
+        });
+        const statuses = latestDocs
+          .filter(d => pollingDocIds.includes(d.id))
+          .map(d => d.status);
+        if (statuses.every(s => s === 'available' || s === 'error') || attempts >= maxAttempts) {
+          clearInterval(timer);
+          setPollingDocIds([]);
+        }
+      } catch {
+        if (attempts >= maxAttempts) {
+          clearInterval(timer);
+          setPollingDocIds([]);
+        }
+      }
+    }, 3000);
+    return () => clearInterval(timer);
+  }, [pollingDocIds, deptPath]);
+
+  if (!deptPath) {
+    return (
+      <div className="flex flex-col h-full bg-[#F5F6F7] items-center justify-center text-[#8F959E]">
+        <BookOpen className="w-10 h-10 text-[#DEE0E3] mb-3" />
+        <p className="text-[13px]">请在左侧选择一个知识库</p>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col h-full bg-[#F5F6F7]">
       {/* Header */}
       <div className="bg-[#F5F6F7] flex-shrink-0">
-        <div className="flex items-center justify-between px-3 pt-3 pb-2">
+        <div className="flex items-center justify-between px-3 pt-3 pb-2 pr-12">
           <div className="flex items-center gap-1.5 min-w-0">
             {datasetInfo ? (
               <h2 className="text-[14px] font-semibold text-[#1F2329] truncate">{datasetInfo.name}</h2>
@@ -362,7 +469,7 @@ export function KnowledgeBaseMiddlePanel({ deptPath, selectedNodeId, onSelectNod
       </div>
 
       {/* Document list */}
-      <div className="flex-1 overflow-y-auto px-1 pb-2">
+      <div className="flex-1 min-h-0 overflow-y-auto px-1 pb-2">
         {loading && (
           <div className="flex flex-col items-center justify-center py-16">
             <div className="w-8 h-8 border-2 border-[#3370FF] border-t-transparent rounded-full animate-spin mb-3" />
@@ -382,6 +489,7 @@ export function KnowledgeBaseMiddlePanel({ deptPath, selectedNodeId, onSelectNod
             selectedId={selectedNodeId}
             onSelect={onSelectNode}
             onDownload={handleDownload}
+            onDelete={setDeleteDoc}
           />
         )) : (
           !loading && !error && (
@@ -394,9 +502,10 @@ export function KnowledgeBaseMiddlePanel({ deptPath, selectedNodeId, onSelectNod
         )}
       </div>
 
-      <UploadDocumentDialog open={uploadOpen} datasetId={deptPath} onClose={() => setUploadOpen(false)} onUploaded={loadDocuments} />
+      <UploadDocumentDialog open={uploadOpen} datasetId={deptPath} onClose={() => setUploadOpen(false)} onUploaded={handleUploaded} />
       <EditDatasetDialog key={datasetInfo?.id || 'new'} open={editOpen} dataset={datasetInfo} onClose={() => setEditOpen(false)} onSave={handleUpdateDataset} />
       <DeleteConfirmDialog open={deleteDatasetOpen} onClose={() => setDeleteDatasetOpen(false)} onConfirm={handleDeleteDataset} itemName={datasetInfo?.name || '当前知识库'} />
+      <DeleteConfirmDialog open={!!deleteDoc} onClose={() => setDeleteDoc(null)} onConfirm={handleDeleteDocument} itemName={deleteDoc?.name || '该文档'} />
     </div>
   );
 }
@@ -442,7 +551,7 @@ function RetrievalTestPanel({ datasetId }: { datasetId: string }) {
         </button>
       </div>
       {results.length > 0 && (
-        <div className="space-y-2">
+        <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
           {results.map((r, idx) => (
             <div key={idx} className="p-3 rounded-lg bg-[#F8F9FA] border border-[#F2F3F5]">
               <div className="flex items-center justify-between mb-1">
@@ -463,13 +572,13 @@ function RetrievalTestPanel({ datasetId }: { datasetId: string }) {
 export function KnowledgeBaseRightPanel({ file, deptPath }: { file: FileNode | null; deptPath: string }) {
   const [datasetInfo, setDatasetInfo] = useState<BffDataset | null>(null);
   const [content, setContent] = useState('# 暂无内容\n\n该文件暂无预览内容。');
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     bffService.knowledge.listDatasets()
       .then(list => setDatasetInfo(list.find(d => d.id === deptPath) || null))
       .catch(() => setDatasetInfo(null));
   }, [deptPath]);
-  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (!file?.documentId) return;
@@ -483,6 +592,15 @@ export function KnowledgeBaseRightPanel({ file, deptPath }: { file: FileNode | n
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, [file, deptPath]);
+
+  if (!deptPath) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center text-[#8F959E] bg-[#F5F6F7]">
+        <BookOpen className="w-12 h-12 text-[#DEE0E3] mb-3" />
+        <p className="text-[14px]">请在左侧选择一个知识库</p>
+      </div>
+    );
+  }
 
   const handleDownload = async () => {
     if (!file?.documentId) return;
@@ -526,7 +644,7 @@ export function KnowledgeBaseRightPanel({ file, deptPath }: { file: FileNode | n
           </button>
         </div>
       </div>
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className="flex-1 min-h-0 overflow-y-auto p-6">
         {loading ? (
           <div className="flex items-center justify-center h-full">
             <div className="w-8 h-8 border-2 border-[#3370FF] border-t-transparent rounded-full animate-spin" />

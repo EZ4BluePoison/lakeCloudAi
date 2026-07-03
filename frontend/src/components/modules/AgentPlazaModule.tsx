@@ -1,12 +1,14 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Search, Star, Download, X, Plus, PenTool, PieChart, Code2, Scale, StickyNote, Users, Presentation, BookOpen,
   Check, Bot, ScanEye, Receipt, CalendarDays, UserPlus, GraduationCap, FileBarChart, TrendingUp,
   MonitorCog, Headphones, FolderKanban, Flame, Sparkles,
   CheckSquare, Sunrise, UtensilsCrossed, Home, Database, Shield, Wrench,
-  FileText, ClipboardCheck, ListTodo
+  FileText, ClipboardCheck, ListTodo, ChevronLeft, ChevronRight
 } from 'lucide-react';
-import { sceneCategories, plazaAgents } from '@/data/agents';
+import { sceneCategories } from '@/data/agents';
+import { bffService } from '@/services/bffService';
+import { mapApplicationToPlazaAgent } from '@/services/agentService';
 import type { PlazaAgent, MyAgent } from '@/types';
 
 const iconMap: Record<string, React.ElementType> = {
@@ -43,7 +45,56 @@ export default function AgentPlazaModule({ favorites, onToggleFavorite, onAddAge
   const [selectedAgent, setSelectedAgent] = useState<PlazaAgent | null>(null);
   const [addSuccessOpen, setAddSuccessOpen] = useState(false);
   const [addedAgentName, setAddedAgentName] = useState('');
-  const [plazaAgentsList] = useState<PlazaAgent[]>(plazaAgents);
+  const [plazaAgentsList, setPlazaAgentsList] = useState<PlazaAgent[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(12);
+
+  useEffect(() => {
+    let cancelled = false;
+    const controller = new AbortController();
+    const keyword = searchQuery.trim();
+    const timer = setTimeout(() => {
+      setLoading(true);
+      setError(null);
+      bffService.application.listApplications({ keyword: keyword || undefined, signal: controller.signal })
+        .then((result) => {
+          if (cancelled) return;
+          console.log('[AgentPlaza] loaded', result.list.length, 'agents, total', result.total);
+          setPlazaAgentsList(result.list.map(mapApplicationToPlazaAgent));
+        })
+        .catch((err) => {
+          if (cancelled || (err instanceof DOMException && err.name === 'AbortError')) return;
+          console.error('[AgentPlaza] load failed:', err);
+          setError(err instanceof Error ? err.message : '加载应用失败');
+        })
+        .finally(() => {
+          if (!cancelled) setLoading(false);
+        });
+    }, 300);
+    return () => {
+      cancelled = true;
+      controller.abort();
+      clearTimeout(timer);
+    };
+  }, [searchQuery]);
+
+  // 搜索关键字变化时回到第一页
+  useEffect(() => {
+    setPage(1);
+  }, [searchQuery]);
+
+  const filtered = plazaAgentsList.filter(agent => {
+    const matchesSearch = !searchQuery || agent.name.toLowerCase().includes(searchQuery.toLowerCase()) || agent.description.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesCategory = activeCategory === '全部' || agent.category === activeCategory;
+    return matchesSearch && matchesCategory;
+  });
+
+  const totalFiltered = filtered.length;
+  const totalPages = Math.max(1, Math.ceil(totalFiltered / limit));
+  const paginatedAgents = filtered.slice((page - 1) * limit, page * limit);
+  const paginatedHasMore = page < totalPages;
 
   const handleAdd = (plazaAgent: PlazaAgent) => {
     onAddAgent(plazaToMyAgent(plazaAgent));
@@ -51,12 +102,6 @@ export default function AgentPlazaModule({ favorites, onToggleFavorite, onAddAge
     setAddSuccessOpen(true);
     setSelectedAgent(null);
   };
-
-  const filtered = plazaAgentsList.filter(agent => {
-    const matchesSearch = !searchQuery || agent.name.toLowerCase().includes(searchQuery.toLowerCase()) || agent.description.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = activeCategory === '全部' || agent.category === activeCategory;
-    return matchesSearch && matchesCategory;
-  });
 
   return (
     <div className="flex flex-col flex-1 min-h-0 bg-[#F5F6F7] relative">
@@ -144,15 +189,47 @@ export default function AgentPlazaModule({ favorites, onToggleFavorite, onAddAge
 
       {/* Agent Grid - flex-1 min-h-0 is critical for scroll to work in nested flex */}
       <div className="flex-1 min-h-0 overflow-y-auto p-6">
+        {loading && plazaAgentsList.length === 0 && (
+          <div className="flex flex-col items-center justify-center h-full">
+            <div className="w-8 h-8 border-2 border-[#3370FF] border-t-transparent rounded-full animate-spin mb-3" />
+            <p className="text-[13px] text-[#8F959E]">加载应用中...</p>
+          </div>
+        )}
+        {!loading && error && plazaAgentsList.length === 0 && (
+          <div className="flex flex-col items-center justify-center h-full">
+            <p className="text-[13px] text-[#F54A45]">{error}</p>
+            <button
+              onClick={() => window.location.reload()}
+              className="mt-2 text-[12px] text-[#3370FF] hover:underline"
+            >
+              刷新重试
+            </button>
+          </div>
+        )}
+        {error && plazaAgentsList.length > 0 && (
+          <div className="mb-4 px-4 py-2 bg-[#FFF2F0] border border-[#FFCCC7] rounded-lg text-[12px] text-[#F54A45] flex items-center justify-between">
+            <span>应用列表加载失败：{error}，当前显示为上次缓存数据。</span>
+            <button
+              onClick={() => window.location.reload()}
+              className="ml-2 text-[#3370FF] hover:underline whitespace-nowrap"
+            >
+              刷新重试
+            </button>
+          </div>
+        )}
+        {(plazaAgentsList.length > 0 || !error) && (
         <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-4">
-          {filtered.map((agent) => {
+          {paginatedAgents.map((agent) => {
             const Icon = iconMap[agent.icon] || Bot;
             const isFav = favorites.includes(agent.id);
             return (
-              <button
+              <div
                 key={agent.id}
+                role="button"
+                tabIndex={0}
                 onClick={() => setSelectedAgent(agent)}
-                className="bg-white rounded-xl p-5 border border-[#DEE0E3] text-left transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 hover:border-[#3370FF]/30 group relative"
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedAgent(agent); } }}
+                className="bg-white rounded-xl p-5 border border-[#DEE0E3] text-left transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 hover:border-[#3370FF]/30 group relative cursor-pointer"
               >
                 {/* Favorite button on card */}
                 <button
@@ -204,18 +281,52 @@ export default function AgentPlazaModule({ favorites, onToggleFavorite, onAddAge
                     <Plus className="w-3 h-3" />添加使用
                   </button>
                 </div>
-              </button>
+              </div>
             );
           })}
         </div>
+        )}
 
-        {filtered.length === 0 && (
+        {!loading && !error && paginatedAgents.length === 0 && (
           <div className="flex flex-col items-center justify-center py-20">
             <Search className="w-12 h-12 text-[#DEE0E3] mb-4" />
             <p className="text-[#BBBFC4] text-[14px]">未找到匹配的智能体</p>
           </div>
         )}
       </div>
+
+      {/* Pagination */}
+      {!loading && !error && totalFiltered > 0 && (
+        <div className="flex items-center justify-between px-6 py-3 bg-white border-t border-[#DEE0E3] flex-shrink-0">
+          <span className="text-[12px] text-[#646A73]">共 {totalFiltered} 个智能体</span>
+          <div className="flex items-center gap-3">
+            <select
+              value={limit}
+              onChange={(e) => { setLimit(Number(e.target.value)); setPage(1); }}
+              className="text-[12px] px-2 py-1 rounded border border-[#DEE0E3] bg-white text-[#1F2329] outline-none focus:border-[#3370FF]"
+            >
+              {[12, 24, 48].map(n => (
+                <option key={n} value={n}>每页 {n}</option>
+              ))}
+            </select>
+            <button
+              disabled={page <= 1}
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+              className="w-7 h-7 flex items-center justify-center rounded border border-[#DEE0E3] disabled:opacity-40 disabled:cursor-not-allowed hover:border-[#3370FF] hover:text-[#3370FF] transition-colors"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <span className="text-[12px] text-[#1F2329]">第 {page} 页</span>
+            <button
+              disabled={!paginatedHasMore}
+              onClick={() => setPage(p => p + 1)}
+              className="w-7 h-7 flex items-center justify-center rounded border border-[#DEE0E3] disabled:opacity-40 disabled:cursor-not-allowed hover:border-[#3370FF] hover:text-[#3370FF] transition-colors"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Agent Detail Slide-over */}
       {selectedAgent && (

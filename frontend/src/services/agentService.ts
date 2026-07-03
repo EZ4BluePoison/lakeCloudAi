@@ -1,4 +1,4 @@
-import type { Agent, MyAgent, PlazaAgent } from '@/types';
+import type { Agent, MyAgent, PlazaAgent, BffApplication } from '@/types';
 
 export interface AgentIconInfo {
   icon: string;
@@ -107,6 +107,107 @@ export function normalizeAgentForMyAgents(agent: Agent): MyAgent {
     department: agent.department,
     createdAt: new Date().toISOString(),
     callCount: agent.callCount,
+  };
+}
+
+function emojiToIconName(emoji?: string): string {
+  const map: Record<string, string> = {
+    '🤖': 'Bot',
+    '📄': 'FileText',
+    '💬': 'MessageSquare',
+    '📊': 'BarChart3',
+    '📈': 'TrendingUp',
+    '📉': 'TrendingDown',
+    '📅': 'CalendarDays',
+    '👤': 'User',
+    '👥': 'Users',
+    '📝': 'PenTool',
+    '✅': 'CheckSquare',
+    '🔍': 'Search',
+    '🛠': 'Wrench',
+    '🛡': 'Shield',
+    '🏠': 'Home',
+    '📚': 'BookOpen',
+    '💼': 'FileText',
+    '⚙️': 'Wrench',
+    '🔧': 'Wrench',
+    '💡': 'Sparkles',
+  };
+  return map[emoji || ''] || getAgentIconInfo(emoji || '').icon;
+}
+
+function formatAppTimestamp(ts?: number | string): string {
+  if (!ts) return new Date().toISOString().slice(0, 10);
+  const num = typeof ts === 'number' ? ts : Number(ts);
+  if (!Number.isNaN(num)) {
+    // 后端返回的是秒级时间戳
+    const date = num > 1e12 ? new Date(num) : new Date(num * 1000);
+    return date.toISOString().slice(0, 10);
+  }
+  return String(ts).slice(0, 10);
+}
+
+function applicationCategory(mode?: string): string {
+  if (mode === 'workflow') return '工作流';
+  if (mode === 'advanced-chat' || mode === 'chatflow' || mode === 'chat') return '聊天助手';
+  return mode || '其他';
+}
+
+export function mapApplicationToPlazaAgent(app: BffApplication): PlazaAgent {
+  const category = applicationCategory(app.mode);
+  return {
+    id: app.id,
+    name: app.name,
+    icon: emojiToIconName(app.icon),
+    iconBg: app.iconBackground || '#3370FF',
+    category,
+    description: app.description || '',
+    fullDescription: app.description || '',
+    tags: app.tags?.length ? app.tags : [category],
+    useCount: 0,
+    creator: app.authorName || app.createdBy || '系统',
+    department: '集团',
+    rating: 4.8,
+    reviewCount: 0,
+    capabilities: app.description ? [app.description] : [],
+    permission: 'group',
+  };
+}
+
+export function mapApplicationToMyAgent(app: BffApplication): MyAgent {
+  const category = applicationCategory(app.mode);
+  return {
+    id: app.id,
+    name: app.name,
+    icon: emojiToIconName(app.icon),
+    iconBg: app.iconBackground || '#3370FF',
+    category,
+    description: app.description || '',
+    permission: 'group',
+    creator: app.authorName || app.createdBy || '系统',
+    department: '集团',
+    createdAt: formatAppTimestamp(app.createdAt),
+    callCount: 0,
+    tags: app.tags?.length ? app.tags : [category],
+    capabilities: app.description ? [app.description] : [],
+  };
+}
+
+export function mapApplicationToAgent(app: BffApplication): Agent {
+  return {
+    id: app.id,
+    name: app.name,
+    icon: emojiToIconName(app.icon),
+    avatarGradient: app.iconBackground || '#3370FF',
+    category: applicationCategory(app.mode),
+    description: app.description || '',
+    permission: 'group',
+    creator: app.authorName || app.createdBy || '系统',
+    department: '集团',
+    callCount: 0,
+    status: 'online',
+    tips: [],
+    responses: [],
   };
 }
 

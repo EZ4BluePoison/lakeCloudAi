@@ -2,17 +2,19 @@ import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import {
   BookOpen, FileText, CalendarDays, GitBranch,
   Receipt, Scale, FolderKanban, Headphones,
-  Star, Send, Paperclip, Image, Mic, Smile, BookOpen as BookOpenIcon,
+  Star, Send, Paperclip, Image, Smile, BookOpen as BookOpenIcon,
   Bot, Cloud, Sparkles, MessageCircle,
   UserPlus, GraduationCap, PenTool, FileBarChart, TrendingUp, MonitorCog,
   CheckSquare, Sunrise, UtensilsCrossed, Home, Database, Shield, Wrench,
   Presentation
 } from 'lucide-react';
 import type { ChatPanelMessage as ChatMessage, ConversationMessage, MyAgent, Agent, PlazaAgent } from '@/types';
-import { plazaAgents } from '@/data/agents';
+import { bffService } from '@/services/bffService';
+import { mapApplicationToPlazaAgent } from '@/services/agentService';
 import { sendMessage as chatServiceSendMessage, type ChatResponse } from '@/services/chatService';
 import { useConversationStore } from '@/store/conversationStore';
 import { Plus, Trash2, History, X } from 'lucide-react';
+import { VoiceInputButton } from '@/components/ui/VoiceInputButton';
 
 const iconMap: Record<string, React.ElementType> = {
   BookOpen, FileText, CalendarDays, GitBranch,
@@ -92,19 +94,18 @@ function plazaToChatAgent(plazaAgent: PlazaAgent): Agent {
 
 /** Convert MyAgent to Agent for chat */
 function myAgentToChatAgent(myAgent: MyAgent): Agent {
-  const plazaAgent = plazaAgents.find(p => p.id === myAgent.id);
   const content = getAgentResponses(myAgent.id, myAgent.name);
   return {
     id: myAgent.id,
     name: myAgent.name,
     icon: myAgent.icon,
     avatarGradient: myAgent.iconBg || 'linear-gradient(135deg, #3370FF 0%, #245BDB 100%)',
-    category: plazaAgent?.category || '行政类',
+    category: myAgent.category || '其他',
     description: myAgent.description,
     permission: myAgent.permission,
     creator: myAgent.creator,
     department: myAgent.department,
-    callCount: myAgent.callCount || plazaAgent?.useCount || 0,
+    callCount: myAgent.callCount || 0,
     status: 'online',
     tips: content.tips,
     responses: content.responses,
@@ -148,12 +149,28 @@ export function MessagesMiddlePanel({
   onToggleFavorite
 }: MessagesMiddlePanelProps) {
   const [activeTab, setActiveTab] = useState<TabType>('全部');
+  const [plazaAgentsList, setPlazaAgentsList] = useState<PlazaAgent[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const controller = new AbortController();
+    bffService.application.listApplications({ signal: controller.signal })
+      .then(result => {
+        if (!cancelled) setPlazaAgentsList(result.list.map(mapApplicationToPlazaAgent));
+      })
+      .catch((err) => {
+        if (cancelled || (err instanceof DOMException && err.name === 'AbortError')) return;
+        console.error('[Messages] load plaza agents failed:', err);
+        // 保留已有列表，避免单次失败导致列表被清空
+      });
+    return () => { cancelled = true; controller.abort(); };
+  }, []);
 
   // Convert MyAgent[] to Agent[] for display
   const chatAgentsList: Agent[] = agents.map(myAgentToChatAgent);
 
   // Add favorited plaza agents that are not already in chatAgentsList
-  const favoritedPlazaAgents: Agent[] = plazaAgents
+  const favoritedPlazaAgents: Agent[] = plazaAgentsList
     .filter(p => favorites.includes(p.id) && !agents.some(a => a.id === p.id))
     .map(plazaToChatAgent);
 
@@ -329,10 +346,29 @@ export function MessagesRightPanel({
 }: MessagesRightPanelProps) {
   // Find agent from conversation agents
   const myAgent = agents.find(a => a.id === agentId);
+  const [plazaAgentsList, setPlazaAgentsList] = useState<PlazaAgent[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const controller = new AbortController();
+    bffService.application.listApplications({ signal: controller.signal })
+      .then(result => {
+        if (!cancelled) setPlazaAgentsList(result.list.map(mapApplicationToPlazaAgent));
+      })
+      .catch((err) => {
+        if (cancelled || (err instanceof DOMException && err.name === 'AbortError')) return;
+        console.error('[MessagesRight] load plaza agents failed:', err);
+      });
+    return () => { cancelled = true; controller.abort(); };
+  }, []);
+
+  const plazaAgent = plazaAgentsList.find(p => p.id === agentId);
   let agent: Agent;
 
   if (myAgent) {
     agent = myAgentToChatAgent(myAgent);
+  } else if (plazaAgent) {
+    agent = plazaToChatAgent(plazaAgent);
   } else if (agentId === 'plaza-1') {
     agent = defaultKnowledgeAgent;
   } else {
@@ -340,7 +376,7 @@ export function MessagesRightPanel({
   }
 
   const Icon = iconMap[agent.icon] || BookOpen;
-  const isFav = favorites.includes(agent.id);
+  const isFav = favorites.includes(agentId);
   const [inputValue, setInputValue] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [conversationId, setConversationId] = useState<string | undefined>(undefined);
@@ -565,7 +601,7 @@ export function MessagesRightPanel({
 
     try {
       const response: ChatResponse = await chatServiceSendMessage(
-        agent.id,
+        agentId,
         agent.name,
         agent.description,
         text,
@@ -717,7 +753,7 @@ export function MessagesRightPanel({
       <div className="px-5 py-3 bg-white border-t border-[#DEE0E3] flex-shrink-0">
         <div className="max-w-[800px] mx-auto">
           <div className="flex gap-1 mb-2">
-            {[Paperclip, Image, Mic, Smile, BookOpenIcon].map((ToolIcon, i) => (
+            {[Paperclip, Image, Smile, BookOpenIcon].map((ToolIcon, i) => (
               <button
                 key={i}
                 className="w-7 h-7 flex items-center justify-center rounded-md text-[#BBBFC4] hover:text-[#1F2329] hover:bg-[#F2F3F5] transition-colors"
@@ -725,6 +761,13 @@ export function MessagesRightPanel({
                 <ToolIcon className="w-4 h-4" />
               </button>
             ))}
+            <VoiceInputButton
+              size="sm"
+              onResult={(text) => {
+                setInputValue((prev) => (prev ? `${prev} ${text}` : text));
+                inputRef.current?.focus();
+              }}
+            />
           </div>
           <div className="flex items-end gap-2 bg-[#F2F3F5] border border-transparent rounded-xl px-3 py-2 focus-within:border-[#3370FF] focus-within:bg-white focus-within:shadow-[0_0_0_2px_rgba(51,112,255,0.15)] transition-all duration-200">
             <textarea
@@ -738,6 +781,13 @@ export function MessagesRightPanel({
               style={{ fieldSizing: 'content' }}
             />
             <div className="flex items-center gap-1 pb-0.5">
+              <VoiceInputButton
+                size="sm"
+                onResult={(text) => {
+                  setInputValue((prev) => (prev ? `${prev} ${text}` : text));
+                  inputRef.current?.focus();
+                }}
+              />
               <button
                 onClick={handleSend}
                 disabled={!inputValue.trim()}

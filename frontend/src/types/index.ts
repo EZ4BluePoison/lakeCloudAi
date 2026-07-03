@@ -236,12 +236,15 @@ export interface MyAgent {
   name: string;
   icon: string;
   iconBg: string;
+  category?: string;
   description: string;
   permission: PermissionLevel;
   creator: string;
   department: string;
   createdAt: string;
   callCount: number;
+  tags?: string[];
+  capabilities?: string[];
 
   // 运行时配置（新建智能体时生成）
   provider?: string;
@@ -273,8 +276,8 @@ export interface FileNode {
   modifiedAt?: string;
   content?: string;
   permission: PermissionLevel;
-  /** BFF/Dify 文档状态：uploaded / parsing / parsed / embedding / indexed / failed / deleted */
-  status?: 'uploaded' | 'parsing' | 'parsed' | 'embedding' | 'indexed' | 'failed' | 'deleted';
+  /** BFF/Dify 文档状态：uploaded / parsing / parsed / embedding / indexed / failed / deleted / available / error */
+  status?: 'uploaded' | 'parsing' | 'parsed' | 'embedding' | 'indexed' | 'failed' | 'deleted' | 'available' | 'error';
   statusText?: string;
   /** 关联的 BFF/Dify documentId，用于分片预览和检索测试 */
   documentId?: string;
@@ -296,6 +299,37 @@ export interface PlazaAgent {
   reviewCount: number;
   capabilities: string[];
   permission: PermissionLevel;
+}
+
+export interface BffApplication {
+  id: string;
+  name: string;
+  description?: string;
+  mode: string;
+  icon?: string;
+  iconBackground?: string;
+  iconType?: string;
+  tags?: string[];
+  status?: string;
+  createdAt?: number | string;
+  updatedAt?: number | string;
+  createdBy?: string;
+  authorName?: string;
+}
+
+export interface CreateApplicationRequest {
+  name: string;
+  description?: string;
+  datasetId?: string;
+  model?: string;
+  prompt?: string;
+}
+
+/** 按模型类型查询到的可用模型项 */
+export interface BffModelTypeItem {
+  label: string;
+  value: string;
+  type: string;
 }
 
 export interface AgentStat {

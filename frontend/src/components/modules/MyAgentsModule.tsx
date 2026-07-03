@@ -5,10 +5,9 @@ import {
   Sparkles, Check, User
 } from 'lucide-react';
 import type { MyAgent } from '@/types';
-import { plazaAgents } from '@/data/agents';
 
 const iconMap: Record<string, React.ElementType> = {
-  BarChart3, FileText, Code2, GitBranch
+  BarChart3, FileText, Code2, GitBranch, Bot, MessageCircle, Trash2, Minus, TrendingUp, Clock, Star, Sparkles, Check, User
 };
 
 function getCategoryColor(cat: string) {
@@ -60,7 +59,7 @@ export function MyAgentsListPanel({
         {agents.length > 0 ? (
           <div className="flex flex-col">
             {agents.map((agent) => {
-              const Icon = iconMap[agent.icon] || BarChart3;
+              const Icon = iconMap[agent.icon] || Bot;
               const isSelected = selectedAgentId === agent.id;
               return (
                 <div
@@ -122,9 +121,10 @@ export function AddedAgentDetailPanel({
   onStartChat: (id: string) => void;
   onRemove: (id: string) => void;
 }) {
-  const Icon = iconMap[agent.icon] || BarChart3;
-  // Find matching plaza agent for richer data
-  const plazaAgent = plazaAgents.find(p => p.id === agent.id);
+  const Icon = iconMap[agent.icon] || Bot;
+  const category = agent.category || '其他';
+  const tags = agent.tags || [];
+  const capabilities = agent.capabilities || [];
 
   // Simulated usage data (generated once per agent)
   const [todayCalls] = useState(() => Math.floor(Math.random() * 50) + 10);
@@ -160,15 +160,15 @@ export function AddedAgentDetailPanel({
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <h2 className="text-[16px] font-semibold text-[#1F2329]">{agent.name}</h2>
-            {plazaAgent && (
+            {category && (
               <span
                 className="text-[11px] px-2 py-0.5 rounded font-medium"
                 style={{
-                  background: `${getCategoryColor(plazaAgent.category)}15`,
-                  color: getCategoryColor(plazaAgent.category),
+                  background: `${getCategoryColor(category)}15`,
+                  color: getCategoryColor(category),
                 }}
               >
-                {plazaAgent.category}
+                {category}
               </span>
             )}
           </div>
@@ -256,9 +256,9 @@ export function AddedAgentDetailPanel({
                 <Sparkles className="w-4 h-4 text-[#FF7D00]" />
                 <h3 className="text-[14px] font-semibold text-[#1F2329]">核心能力</h3>
               </div>
-              {plazaAgent ? (
+              {capabilities.length > 0 ? (
                 <div className="space-y-2">
-                  {plazaAgent.capabilities.map((cap, i) => (
+                  {capabilities.map((cap, i) => (
                     <div key={i} className="flex items-center gap-2">
                       <div className="w-5 h-5 rounded-full bg-[#E6F7EF] flex items-center justify-center flex-shrink-0">
                         <Check className="w-3 h-3 text-[#00B96B]" />
@@ -272,10 +272,10 @@ export function AddedAgentDetailPanel({
               )}
 
               {/* Tags */}
-              {plazaAgent && (
+              {tags.length > 0 && (
                 <div className="mt-4 pt-4 border-t border-[#F2F3F5]">
                   <div className="flex flex-wrap gap-1.5">
-                    {plazaAgent.tags.map((tag, i) => (
+                    {tags.map((tag, i) => (
                       <span key={i} className="text-[11px] px-2 py-0.5 rounded bg-[#F2F3F5] text-[#646A73]">{tag}</span>
                     ))}
                   </div>

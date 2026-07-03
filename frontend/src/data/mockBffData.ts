@@ -270,7 +270,7 @@ export interface BffDocument {
   datasetId: string;
   name: string;
   size: string;
-  status: 'uploaded' | 'parsing' | 'parsed' | 'embedding' | 'indexed' | 'failed' | 'deleted';
+  status: 'uploaded' | 'parsing' | 'parsed' | 'embedding' | 'indexed' | 'failed' | 'deleted' | 'available' | 'error';
   statusText: string;
   createdAt: string;
   updatedAt: string;

@@ -4,7 +4,7 @@ import {
   ChevronDown, Sparkles, FileText, Plus, Cloud
 } from 'lucide-react';
 import type { NavModule, KnowledgeSubLevel } from '@/types';
-import { plazaAgents } from '@/data/agents';
+
 import { bffService, type BffDataset } from '@/services/bffService';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -17,6 +17,8 @@ interface SidebarProps {
   addedAgentCount: number;
   collapsed?: boolean;
   onToggleCollapse?: () => void;
+  /** 外部触发刷新知识库列表的标记 */
+  refreshToken?: number;
 }
 
 interface NavItem {
@@ -39,12 +41,14 @@ const mainNavItems: NavItem[] = [
 
 // ===== Sidebar Component =====
 
-export default function Sidebar({ activeModule, activeKnowledgeSub, onModuleChange, onKnowledgeSubChange, addedAgentCount, collapsed = false, onToggleCollapse }: SidebarProps) {
+export default function Sidebar({ activeModule, activeKnowledgeSub, onModuleChange, onKnowledgeSubChange, addedAgentCount, collapsed = false, onToggleCollapse, refreshToken = 0 }: SidebarProps) {
   const [kbExpanded, setKbExpanded] = useState(false);
   const [datasets, setDatasets] = useState<BffDataset[]>([]);
   const [datasetsLoading, setDatasetsLoading] = useState(false);
   const [createKbOpen, setCreateKbOpen] = useState(false);
   const [newKbName, setNewKbName] = useState('');
+  const [newKbDescription, setNewKbDescription] = useState('');
+  const [plazaCount, setPlazaCount] = useState(0);
 
   const isKbActive = activeModule === 'knowledgeBase';
 
@@ -60,7 +64,13 @@ export default function Sidebar({ activeModule, activeKnowledgeSub, onModuleChan
 
   useEffect(() => {
     if (kbExpanded) loadDatasets();
-  }, [kbExpanded, loadDatasets]);
+  }, [kbExpanded, loadDatasets, refreshToken]);
+
+  useEffect(() => {
+    bffService.application.listApplications({ limit: 1 })
+      .then(result => setPlazaCount(result.total))
+      .catch(() => setPlazaCount(0));
+  }, []);
 
   const handleSelectDataset = useCallback((datasetId: string) => {
     onKnowledgeSubChange(datasetId);
@@ -69,8 +79,12 @@ export default function Sidebar({ activeModule, activeKnowledgeSub, onModuleChan
 
   const handleCreateDataset = async () => {
     if (!newKbName.trim()) return;
-    const created = await bffService.knowledge.createDataset({ name: newKbName.trim(), description: '' });
+    const created = await bffService.knowledge.createDataset({
+      name: newKbName.trim(),
+      description: newKbDescription.trim(),
+    });
     setNewKbName('');
+    setNewKbDescription('');
     setCreateKbOpen(false);
     await loadDatasets();
     handleSelectDataset(created.id);
@@ -146,7 +160,7 @@ export default function Sidebar({ activeModule, activeKnowledgeSub, onModuleChan
                   {/* Badge: agentPlaza shows plaza count, messages shows addedAgentCount */}
                   {(item.id === 'agentPlaza' || (item.id === 'messages' && addedAgentCount > 0)) && (
                     <span className={`${item.id === 'agentPlaza' ? 'bg-[#00B96B]' : 'bg-[#F54A45]'} text-white text-[10px] font-medium px-1.5 py-0.5 rounded-full min-w-[18px] text-center`}>
-                      {item.id === 'agentPlaza' ? plazaAgents.length : addedAgentCount}
+                      {item.id === 'agentPlaza' ? plazaCount : addedAgentCount}
                     </span>
                   )}
                 </>
@@ -157,41 +171,48 @@ export default function Sidebar({ activeModule, activeKnowledgeSub, onModuleChan
 
         {/* Knowledge Base */}
         <div className="mt-1">
-          <button
-            onClick={() => {
-              if (collapsed) {
-                onModuleChange('knowledgeBase');
-                return;
-              }
-              setKbExpanded(!kbExpanded);
-              if (!isKbActive) onModuleChange('knowledgeBase');
-            }}
-            className={`
-              w-full flex items-center rounded-lg text-sm font-medium transition-all duration-150
-              ${collapsed ? 'justify-center px-2 py-2' : 'gap-2.5 px-3 py-2'}
-              ${isKbActive ? 'bg-[#E8F1FF] text-[#3370FF]' : 'text-[#646A73] hover:bg-[#EBEBEB] hover:text-[#1F2329]'}
-            `}
-          >
-            <BookOpen className="w-[18px] h-[18px] flex-shrink-0" />
-            {!collapsed && (
-              <>
-                <span className="flex-1 text-left">知识库</span>
-                <button
-                  onClick={(e) => { e.stopPropagation(); setCreateKbOpen(true); }}
-                  className="w-6 h-6 flex items-center justify-center rounded text-[#3370FF] hover:bg-[#D0E0FF] transition-colors"
-                  title="创建知识库"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                </button>
+          {collapsed ? (
+            <button
+              onClick={() => onModuleChange('knowledgeBase')}
+              className={`
+                w-full flex items-center justify-center rounded-lg text-sm font-medium transition-all duration-150 px-2 py-2
+                ${isKbActive ? 'bg-[#E8F1FF] text-[#3370FF]' : 'text-[#646A73] hover:bg-[#EBEBEB] hover:text-[#1F2329]'}
+              `}
+            >
+              <BookOpen className="w-[18px] h-[18px] flex-shrink-0" />
+            </button>
+          ) : (
+            <div
+              className={`
+                w-full flex items-center rounded-lg text-sm font-medium transition-all duration-150
+                ${isKbActive ? 'bg-[#E8F1FF] text-[#3370FF]' : 'text-[#646A73] hover:bg-[#EBEBEB] hover:text-[#1F2329]'}
+              `}
+            >
+              <button
+                onClick={() => {
+                  setKbExpanded(!kbExpanded);
+                  if (!isKbActive) onModuleChange('knowledgeBase');
+                }}
+                className="flex-1 flex items-center gap-2.5 px-3 py-2 text-left"
+              >
+                <BookOpen className="w-[18px] h-[18px] flex-shrink-0" />
+                <span className="flex-1">知识库</span>
                 <ChevronDown
                   className={`w-3.5 h-3.5 transition-transform duration-200 ${kbExpanded ? 'rotate-180' : ''}`}
                 />
-              </>
-            )}
-          </button>
+              </button>
+              <button
+                onClick={() => setCreateKbOpen(true)}
+                className="w-8 h-8 mr-1 flex items-center justify-center rounded text-[#3370FF] hover:bg-[#D0E0FF] transition-colors"
+                title="创建知识库"
+              >
+                <Plus className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
 
           {!collapsed && kbExpanded && (
-            <div className="mt-0.5 pl-1 space-y-0.5">
+            <div className="mt-0.5 pl-1 space-y-0.5 overflow-y-auto max-h-[300px]">
               {datasetsLoading && (
                 <div className="flex items-center justify-center py-3">
                   <div className="w-4 h-4 border-2 border-[#3370FF] border-t-transparent rounded-full animate-spin" />
@@ -245,6 +266,13 @@ export default function Sidebar({ activeModule, activeKnowledgeSub, onModuleChan
             onKeyDown={e => { if (e.key === 'Enter') handleCreateDataset(); }}
             placeholder="知识库名称"
             className="w-full px-3 py-2 rounded-lg bg-[#F2F3F5] border border-transparent focus:border-[#3370FF] text-[13px] outline-none placeholder:text-[#BBBFC4]"
+          />
+          <textarea
+            value={newKbDescription}
+            onChange={e => setNewKbDescription(e.target.value)}
+            placeholder="知识库描述（可选）"
+            rows={3}
+            className="w-full px-3 py-2 rounded-lg bg-[#F2F3F5] border border-transparent focus:border-[#3370FF] text-[13px] outline-none placeholder:text-[#BBBFC4] resize-none"
           />
           <DialogFooter className="gap-2 mt-2">
             <Button variant="outline" onClick={() => setCreateKbOpen(false)} className="text-[13px] border-[#DEE0E3] text-[#646A73]">取消</Button>

@@ -1,22 +1,10 @@
 import { bffService } from './bffService';
-import { createModelService } from './modelService';
-import { getAgentPrompt } from '@/data/agentPrompts';
-import type { Citation } from '@/types';
 
 export interface ChatResponse {
   content: string;
   followUpOptions: string[];
   conversationId: string;
   messageId: string;
-  usage?: {
-    promptTokens: number;
-    completionTokens: number;
-    totalTokens: number;
-  };
-  /** 引用信息保留在元数据中，前端不展示给用户 */
-  metadata?: {
-    citations?: Citation[];
-  };
 }
 
 export interface FollowUpSuggestion {
@@ -172,15 +160,6 @@ const agentFollowUpTemplates: Record<string, FollowUpSuggestion[]> = {
   ],
 };
 
-function getAgentSystemPrompt(agentId: string, agentName: string, description: string): string {
-  const agentPrompt = getAgentPrompt(agentId);
-  if (agentPrompt?.systemPrompt) {
-    return agentPrompt.systemPrompt;
-  }
-
-  return `你是${agentName}，${description}。请根据你的专业知识回答用户的问题，保持回答简洁明了，专业准确。`;
-}
-
 function getRelevantTemplates(agentId: string, content: string): FollowUpSuggestion[] {
   // 优先按智能体 ID 匹配，避免内容中偶然出现的关键词误触
   const agentSpecific = agentFollowUpTemplates[agentId];
@@ -204,123 +183,47 @@ function generateFollowUpOptions(agentId: string, content: string): string[] {
 }
 
 /**
- * 使用 LLM 基于用户问题和模型回答生成 3 个相关后续问题。
- * 失败或超时时返回空数组，由调用方兜底。
- */
-async function generateFollowUpOptionsWithLlm(
-  agentName: string,
-  userMessage: string,
-  answer: string
-): Promise<string[]> {
-  try {
-    const modelService = createModelService({
-      provider: 'wuxidata',
-      model: '/model/Qwen3-Next',
-      apiEndpoint: 'http://localhost:8080',
-      temperature: 0.6,
-      topP: 0.9,
-      maxTokens: 256,
-      presencePenalty: 0,
-      frequencyPenalty: 0,
-    });
-
-    const systemPrompt = `你是对话续写助手。请严格根据「用户问题」和「智能体回答」的内容，生成3个用户可能想继续追问的问题。
-要求：
-- 问题必须与回答内容强相关，不能偏离主题
-- 问题要具体、可回答，不要泛泛而谈
-- 每个问题一行，不要编号，不要解释
-- 只输出3个问题，不要输出其他内容`;
-
-    const userPrompt = `智能体：${agentName}
-用户问题："""${userMessage}"""
-回答内容："""${answer.substring(0, 1200)}"""
-
-请生成3个后续问题：`;
-
-    const response = await modelService.chat([
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: userPrompt },
-    ]);
-
-    const questions = (response.content || '')
-      .split('\n')
-      .map(line => line.trim())
-      .filter(line => line.length > 0)
-      .map(line => line.replace(/^\s*[\d一二三四五六七八九十]+[.、.\s]+/, '').replace(/^[-•]\s*/, '').trim())
-      .map(line => line.replace(/[?？]\s*$/, '') + '?')
-      .filter(line => line.length > 6 && line.length < 60)
-      .slice(0, 3);
-
-    return questions.length === 3 ? questions : [];
-  } catch (error) {
-    console.warn('[chatService] LLM 生成后续问题失败:', error);
-    return [];
-  }
-}
-
-/**
- * 发送消息（走 BFF / Dify 语义）
- * 入参与之前基本保持一致，新增可选 conversationId 用于多轮会话。
+ * 发送消息。
+ * 前端只负责把 query 传给后端工作流，由后端完成模型调用与流式输出，
+ * 前端消费 SSE 后返回完整结果。
  */
 export async function sendMessage(
   agentId: string,
   agentName: string,
-  agentDescription: string,
+  _agentDescription: string,
   userMessage: string,
   conversationId?: string
 ): Promise<ChatResponse> {
-  const systemPrompt = getAgentSystemPrompt(agentId, agentName, agentDescription);
 
   const result = await bffService.chat.sendMessage({
     agentId,
+    agentName,
     query: userMessage,
     conversationId,
-    inputs: {
-      system_prompt: systemPrompt,
-    },
-    responseMode: 'blocking',
   });
 
   const answer = result.answer || '抱歉，我无法回答这个问题。';
-
-  // 优先用 LLM 生成强相关的后续问题，3 秒超时则降级到关键词模板
-  let followUpOptions: string[] = [];
-  try {
-    followUpOptions = await Promise.race([
-      generateFollowUpOptionsWithLlm(agentName, userMessage, answer),
-      new Promise<string[]>((_, reject) => setTimeout(() => reject(new Error('timeout')), 3000)),
-    ]);
-  } catch {
-    followUpOptions = [];
-  }
-  if (followUpOptions.length === 0) {
-    followUpOptions = generateFollowUpOptions(agentId, answer);
-  }
+  const followUpOptions = generateFollowUpOptions(agentId, answer);
 
   return {
     content: answer,
     followUpOptions,
     conversationId: result.conversationId,
     messageId: result.messageId,
-    usage: result.metadata?.tokenUsage,
-    // 引用信息保留，但前端不展示
-    metadata: {
-      citations: result.metadata?.citations,
-    },
   };
 }
 
 export async function sendMessageWithRetry(
   agentId: string,
   agentName: string,
-  agentDescription: string,
+  _agentDescription: string,
   userMessage: string,
   conversationId?: string,
   maxRetries: number = 2
 ): Promise<ChatResponse> {
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
-      return await sendMessage(agentId, agentName, agentDescription, userMessage, conversationId);
+      return await sendMessage(agentId, agentName, _agentDescription, userMessage, conversationId);
     } catch (error) {
       if (attempt === maxRetries - 1) {
         throw error;
