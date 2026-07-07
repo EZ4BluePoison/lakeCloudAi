@@ -1,11 +1,13 @@
 import { useState, useCallback, useEffect } from 'react';
 import {
   MessageSquare, Bot, Store, BookOpen, Database,
-  ChevronDown, Sparkles, FileText, Plus, Cloud
+  ChevronDown, Sparkles, FileText, Plus, Cloud,
+  Shield, Users, Building2, LogOut
 } from 'lucide-react';
-import type { NavModule, KnowledgeSubLevel } from '@/types';
+import type { NavModule, KnowledgeSubLevel, PermissionCode } from '@/types';
 
 import { bffService, type BffDataset } from '@/services/bffService';
+import { useAuthStore } from '@/store/authStore';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 
@@ -27,14 +29,21 @@ interface NavItem {
   icon: React.ElementType;
   badge?: string;
   badgeColor?: string;
+  requiredPermission?: PermissionCode;
 }
 
 const mainNavItems: NavItem[] = [
   { id: 'messages', label: '消息', icon: MessageSquare },
   { id: 'myAgents', label: '我的智能体', icon: Bot },
-  { id: 'agentPlaza', label: '智能体广场', icon: Store, badgeColor: 'bg-[#00B96B]' },
-  { id: 'createAgent', label: '新建智能体', icon: Sparkles },
-  { id: 'promptRepo', label: '提示词仓库', icon: FileText },
+  { id: 'agentPlaza', label: '智能体广场', icon: Store, badgeColor: 'bg-[#00B96B]', requiredPermission: 'agent:view' },
+  { id: 'createAgent', label: '新建智能体', icon: Sparkles, requiredPermission: 'agent:create' },
+  { id: 'promptRepo', label: '提示词仓库', icon: FileText, requiredPermission: 'prompt:view' },
+];
+
+const systemNavItems: NavItem[] = [
+  { id: 'userManagement', label: '用户管理', icon: Users, requiredPermission: 'user:view' },
+  { id: 'orgManagement', label: '组织架构', icon: Building2, requiredPermission: 'org:view' },
+  { id: 'roleManagement', label: '角色权限', icon: Shield, requiredPermission: 'role:view' },
 ];
 
 
@@ -49,6 +58,15 @@ export default function Sidebar({ activeModule, activeKnowledgeSub, onModuleChan
   const [newKbName, setNewKbName] = useState('');
   const [newKbDescription, setNewKbDescription] = useState('');
   const [plazaCount, setPlazaCount] = useState(0);
+
+  const { user, hasPermission } = useAuthStore();
+  const visibleMainNavItems = mainNavItems.filter(
+    (item) => !item.requiredPermission || hasPermission(item.requiredPermission)
+  );
+  const visibleSystemNavItems = systemNavItems.filter(
+    (item) => !item.requiredPermission || hasPermission(item.requiredPermission)
+  );
+  const canCreateKnowledgeBase = hasPermission('knowledge:create');
 
   const isKbActive = activeModule === 'knowledgeBase';
 
@@ -140,7 +158,7 @@ export default function Sidebar({ activeModule, activeKnowledgeSub, onModuleChan
 
         <div className="h-px bg-[#DEE0E3] my-0.5" />
 
-        {mainNavItems.map((item) => {
+        {visibleMainNavItems.map((item) => {
           const isActive = activeModule === item.id;
           const Icon = item.icon;
           return (
@@ -170,90 +188,130 @@ export default function Sidebar({ activeModule, activeKnowledgeSub, onModuleChan
         })}
 
         {/* Knowledge Base */}
-        <div className="mt-1">
-          {collapsed ? (
-            <button
-              onClick={() => onModuleChange('knowledgeBase')}
-              className={`
-                w-full flex items-center justify-center rounded-lg text-sm font-medium transition-all duration-150 px-2 py-2
-                ${isKbActive ? 'bg-[#E8F1FF] text-[#3370FF]' : 'text-[#646A73] hover:bg-[#EBEBEB] hover:text-[#1F2329]'}
-              `}
-            >
-              <BookOpen className="w-[18px] h-[18px] flex-shrink-0" />
-            </button>
-          ) : (
-            <div
-              className={`
-                w-full flex items-center rounded-lg text-sm font-medium transition-all duration-150
-                ${isKbActive ? 'bg-[#E8F1FF] text-[#3370FF]' : 'text-[#646A73] hover:bg-[#EBEBEB] hover:text-[#1F2329]'}
-              `}
-            >
+        {hasPermission('knowledge:view') && (
+          <div className="mt-1">
+            {collapsed ? (
               <button
-                onClick={() => {
-                  setKbExpanded(!kbExpanded);
-                  if (!isKbActive) onModuleChange('knowledgeBase');
-                }}
-                className="flex-1 flex items-center gap-2.5 px-3 py-2 text-left"
+                onClick={() => onModuleChange('knowledgeBase')}
+                className={`
+                  w-full flex items-center justify-center rounded-lg text-sm font-medium transition-all duration-150 px-2 py-2
+                  ${isKbActive ? 'bg-[#E8F1FF] text-[#3370FF]' : 'text-[#646A73] hover:bg-[#EBEBEB] hover:text-[#1F2329]'}
+                `}
               >
                 <BookOpen className="w-[18px] h-[18px] flex-shrink-0" />
-                <span className="flex-1">知识库</span>
-                <ChevronDown
-                  className={`w-3.5 h-3.5 transition-transform duration-200 ${kbExpanded ? 'rotate-180' : ''}`}
-                />
               </button>
-              <button
-                onClick={() => setCreateKbOpen(true)}
-                className="w-8 h-8 mr-1 flex items-center justify-center rounded text-[#3370FF] hover:bg-[#D0E0FF] transition-colors"
-                title="创建知识库"
+            ) : (
+              <div
+                className={`
+                  w-full flex items-center rounded-lg text-sm font-medium transition-all duration-150
+                  ${isKbActive ? 'bg-[#E8F1FF] text-[#3370FF]' : 'text-[#646A73] hover:bg-[#EBEBEB] hover:text-[#1F2329]'}
+                `}
               >
-                <Plus className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          )}
+                <button
+                  onClick={() => {
+                    setKbExpanded(!kbExpanded);
+                    if (!isKbActive) onModuleChange('knowledgeBase');
+                  }}
+                  className="flex-1 flex items-center gap-2.5 px-3 py-2 text-left"
+                >
+                  <BookOpen className="w-[18px] h-[18px] flex-shrink-0" />
+                  <span className="flex-1">知识库</span>
+                  <ChevronDown
+                    className={`w-3.5 h-3.5 transition-transform duration-200 ${kbExpanded ? 'rotate-180' : ''}`}
+                  />
+                </button>
+                {canCreateKnowledgeBase && (
+                  <button
+                    onClick={() => setCreateKbOpen(true)}
+                    className="w-8 h-8 mr-1 flex items-center justify-center rounded text-[#3370FF] hover:bg-[#D0E0FF] transition-colors"
+                    title="创建知识库"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+            )}
 
-          {!collapsed && kbExpanded && (
-            <div className="mt-0.5 pl-1 space-y-0.5 overflow-y-auto max-h-[300px]">
-              {datasetsLoading && (
-                <div className="flex items-center justify-center py-3">
-                  <div className="w-4 h-4 border-2 border-[#3370FF] border-t-transparent rounded-full animate-spin" />
-                </div>
-              )}
-              {!datasetsLoading && datasets.length === 0 && (
-                <div className="px-3 py-2 text-[12px] text-[#BBBFC4]">暂无知识库</div>
-              )}
-              {!datasetsLoading && datasets.map((ds) => {
-                const isActive = isKbActive && activeKnowledgeSub === ds.id;
+            {!collapsed && kbExpanded && (
+              <div className="mt-0.5 pl-1 space-y-0.5 overflow-y-auto max-h-[300px]">
+                {datasetsLoading && (
+                  <div className="flex items-center justify-center py-3">
+                    <div className="w-4 h-4 border-2 border-[#3370FF] border-t-transparent rounded-full animate-spin" />
+                  </div>
+                )}
+                {!datasetsLoading && datasets.length === 0 && (
+                  <div className="px-3 py-2 text-[12px] text-[#BBBFC4]">暂无知识库</div>
+                )}
+                {!datasetsLoading && datasets.map((ds) => {
+                  const isActive = isKbActive && activeKnowledgeSub === ds.id;
+                  return (
+                    <button
+                      key={ds.id}
+                      onClick={() => handleSelectDataset(ds.id)}
+                      className={`w-full flex items-center gap-2 px-3 py-2 rounded-md text-left text-[12px] transition-colors ${
+                        isActive ? 'bg-[#E8F1FF] text-[#3370FF]' : 'text-[#646A73] hover:bg-[#EBEBEB] hover:text-[#1F2329]'
+                      }`}
+                      title={ds.description || ds.name}
+                    >
+                      <Database className="w-3.5 h-3.5 flex-shrink-0" />
+                      <span className="flex-1 truncate">{ds.name}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* System Management */}
+        {visibleSystemNavItems.length > 0 && (
+          <div className="mt-4">
+            {!collapsed && (
+              <div className="px-3 mb-1 text-[11px] font-medium text-[#8F959E]">系统管理</div>
+            )}
+            <div className="space-y-0.5">
+              {visibleSystemNavItems.map((item) => {
+                const isActive = activeModule === item.id;
+                const Icon = item.icon;
                 return (
                   <button
-                    key={ds.id}
-                    onClick={() => handleSelectDataset(ds.id)}
-                    className={`w-full flex items-center gap-2 px-3 py-2 rounded-md text-left text-[12px] transition-colors ${
-                      isActive ? 'bg-[#E8F1FF] text-[#3370FF]' : 'text-[#646A73] hover:bg-[#EBEBEB] hover:text-[#1F2329]'
-                    }`}
-                    title={ds.description || ds.name}
+                    key={item.id}
+                    onClick={() => onModuleChange(item.id)}
+                    className={`
+                      w-full flex items-center rounded-lg text-sm font-medium transition-all duration-150
+                      ${collapsed ? 'justify-center px-2 py-2' : 'gap-2.5 px-3 py-2'}
+                      ${isActive ? 'bg-[#E8F1FF] text-[#3370FF]' : 'text-[#646A73] hover:bg-[#EBEBEB] hover:text-[#1F2329]'}
+                    `}
                   >
-                    <Database className="w-3.5 h-3.5 flex-shrink-0" />
-                    <span className="flex-1 truncate">{ds.name}</span>
+                    <Icon className="w-[18px] h-[18px] flex-shrink-0" />
+                    {!collapsed && <span className="flex-1 text-left">{item.label}</span>}
                   </button>
                 );
               })}
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
       </nav>
 
       {/* User Footer */}
       <div className={`h-[52px] flex items-center border-t border-[#DEE0E3] flex-shrink-0 ${collapsed ? 'justify-center px-2' : 'px-3 gap-2.5'}`}>
         <div className="w-8 h-8 rounded-full bg-[#3370FF] flex items-center justify-center text-white text-xs font-medium flex-shrink-0">
-          张
+          {user?.name ? user.name.slice(0, 1) : '用'}
         </div>
         {!collapsed && (
           <div className="flex-1 min-w-0">
-            <div className="text-[13px] text-[#1F2329] font-medium truncate">张经理</div>
-            <div className="text-[11px] text-[#8F959E] truncate">数字化部 · 在线</div>
+            <div className="text-[13px] text-[#1F2329] font-medium truncate">{user?.name || '未登录'}</div>
+            <div className="text-[11px] text-[#8F959E] truncate">{user?.departmentName || '未知部门'} · 在线</div>
           </div>
         )}
+        <button
+          onClick={() => useAuthStore.getState().logout()}
+          className="w-7 h-7 flex items-center justify-center rounded text-[#8F959E] hover:text-[#F54A45] hover:bg-[#FFF2F0] transition-colors"
+          title="退出登录"
+        >
+          <LogOut className="w-4 h-4" />
+        </button>
       </div>
 
       {/* Create Dataset Dialog */}

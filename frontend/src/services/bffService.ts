@@ -137,6 +137,56 @@ class BffChatService {
     return { conversationId: chatConversationId || conversationId, messageId, answer };
   }
 
+  async *sendMessageStream(params: SendChatMessageParams): AsyncGenerator<{ text?: string; conversationId?: string }> {
+    const conversationId = params.conversationId || `conv-${Date.now()}`;
+
+    const workflowAppId = await bffService.workflow.resolveAppId(params.agentId, params.agentName);
+    if (!workflowAppId) {
+      throw new Error(`未能将智能体 "${params.agentName || params.agentId}" 映射到后端应用，请检查应用名称或 ID。`);
+    }
+
+    const mode = await bffService.workflow.getAppMode(workflowAppId);
+    console.log('[BFFChat] streaming app:', workflowAppId, 'mode:', mode, 'query:', params.query);
+
+    const extractText = (ev: WorkflowEvent): string | undefined => {
+      if (typeof ev.data === 'string') return ev.data;
+      if (!ev.data || typeof ev.data !== 'object') return undefined;
+      const d = ev.data as Record<string, unknown>;
+      const text = d.answer || d.text || d.data || d.content;
+      if (typeof text === 'string') return text;
+      const outputs = d.outputs as Record<string, unknown> | undefined;
+      if (outputs) {
+        const candidate = Object.values(outputs).find((v): v is string => typeof v === 'string');
+        if (candidate) return candidate;
+      }
+      return undefined;
+    };
+
+    if (mode === 'workflow') {
+      for await (const ev of bffService.workflow.runWorkflowStream(workflowAppId, {
+        query: params.query,
+        inputs: params.inputs,
+        conversationId,
+      })) {
+        const text = extractText(ev);
+        if (text) yield { text };
+      }
+    } else {
+      for await (const ev of bffService.workflow.runChatStream(workflowAppId, {
+        query: params.query,
+        inputs: params.inputs,
+        conversationId,
+      })) {
+        if (ev.event === 'message' || ev.event === 'agent_message') {
+          const d = ev.data as { conversation_id?: string } | undefined;
+          if (d?.conversation_id) yield { conversationId: d.conversation_id };
+        }
+        const text = extractText(ev);
+        if (text) yield { text };
+      }
+    }
+  }
+
   async sendFeedback(messageId: string, rating: 'like' | 'dislike', content?: string): Promise<void> {
     await delay(200);
     console.log('[BFF Mock] feedback', { messageId, rating, content });
@@ -509,11 +559,13 @@ function toBffApplication(raw: unknown): BffApplication {
 // ==================== Application API ====================
 
 class BffApplicationService {
-  private async fetchApplicationsPage(params: { page: number; limit: number; keyword?: string; signal?: AbortSignal }): Promise<{ list: BffApplication[]; total: number; hasMore: boolean }> {
+  private async fetchApplicationsPage(params: { page: number; limit: number; keyword?: string; deptId?: string; roleId?: string; signal?: AbortSignal }): Promise<{ list: BffApplication[]; total: number; hasMore: boolean }> {
     const query = new URLSearchParams();
     query.set('page', String(params.page));
     query.set('limit', String(params.limit));
     if (params.keyword) query.set('keyword', params.keyword);
+    if (params.deptId) query.set('deptId', params.deptId);
+    if (params.roleId) query.set('roleId', params.roleId);
     const fetchOptions: RequestInit = { headers: getAuthHeaders() };
     if (params.signal) fetchOptions.signal = params.signal;
     const res = await fetch(`${API_BASE_URL}/api/console/applications?${query.toString()}`, fetchOptions);
@@ -550,13 +602,15 @@ class BffApplicationService {
     return { list: rawList.map(toBffApplication), total, hasMore };
   }
 
-  async listApplications(params?: { page?: number; keyword?: string; limit?: number; signal?: AbortSignal }): Promise<{ list: BffApplication[]; total: number; hasMore: boolean }> {
+  async listApplications(params?: { page?: number; keyword?: string; limit?: number; deptId?: string; roleId?: string; signal?: AbortSignal }): Promise<{ list: BffApplication[]; total: number; hasMore: boolean }> {
     // 调用方显式传了 limit，只取单页
     if (params?.limit) {
       return this.fetchApplicationsPage({
         page: params.page || 1,
         limit: params.limit,
         keyword: params.keyword,
+        deptId: params.deptId,
+        roleId: params.roleId,
         signal: params.signal,
       });
     }
@@ -567,7 +621,7 @@ class BffApplicationService {
     let total = 0;
     const all: BffApplication[] = [];
     while (true) {
-      const result = await this.fetchApplicationsPage({ page, limit: pageSize, keyword: params?.keyword, signal: params?.signal });
+      const result = await this.fetchApplicationsPage({ page, limit: pageSize, keyword: params?.keyword, deptId: params?.deptId, roleId: params?.roleId, signal: params?.signal });
       all.push(...result.list);
       total = result.total;
       if (!result.hasMore || result.list.length === 0) break;

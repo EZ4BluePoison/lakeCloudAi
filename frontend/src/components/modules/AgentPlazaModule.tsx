@@ -9,6 +9,7 @@ import {
 import { sceneCategories } from '@/data/agents';
 import { bffService } from '@/services/bffService';
 import { mapApplicationToPlazaAgent } from '@/services/agentService';
+import { useAuthStore } from '@/store/authStore';
 import type { PlazaAgent, MyAgent } from '@/types';
 
 const iconMap: Record<string, React.ElementType> = {
@@ -40,6 +41,7 @@ function plazaToMyAgent(p: PlazaAgent): MyAgent {
 }
 
 export default function AgentPlazaModule({ favorites, onToggleFavorite, onAddAgent }: AgentPlazaModuleProps) {
+  const { user } = useAuthStore();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState('全部');
   const [selectedAgent, setSelectedAgent] = useState<PlazaAgent | null>(null);
@@ -51,6 +53,9 @@ export default function AgentPlazaModule({ favorites, onToggleFavorite, onAddAge
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(12);
 
+  const deptId = user?.departmentId;
+  const roleId = user?.roleIds?.[0];
+
   useEffect(() => {
     let cancelled = false;
     const controller = new AbortController();
@@ -58,7 +63,13 @@ export default function AgentPlazaModule({ favorites, onToggleFavorite, onAddAge
     const timer = setTimeout(() => {
       setLoading(true);
       setError(null);
-      bffService.application.listApplications({ keyword: keyword || undefined, signal: controller.signal })
+      bffService.application.listApplications({
+        keyword: keyword || undefined,
+        signal: controller.signal,
+        // 后端如支持可按角色/部门过滤；当前版本向后兼容，无该参数时后端忽略
+        ...(deptId ? { deptId } : {}),
+        ...(roleId ? { roleId } : {}),
+      })
         .then((result) => {
           if (cancelled) return;
           console.log('[AgentPlaza] loaded', result.list.length, 'agents, total', result.total);
@@ -78,7 +89,7 @@ export default function AgentPlazaModule({ favorites, onToggleFavorite, onAddAge
       controller.abort();
       clearTimeout(timer);
     };
-  }, [searchQuery]);
+  }, [searchQuery, deptId, roleId]);
 
   // 搜索关键字变化时回到第一页
   useEffect(() => {

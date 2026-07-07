@@ -16,6 +16,32 @@ function formatSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+const statusDisplayMap: Record<string, string> = {
+  uploaded: '已上传',
+  parsing: '解析中',
+  parsed: '已解析',
+  embedding: '嵌入中',
+  indexing: '处理中',
+  indexed: '已索引',
+  failed: '失败',
+  deleted: '已删除',
+  available: '已完成',
+  error: '错误',
+  pending: '待处理',
+};
+
+function getStatusDisplay(node: FileNode): string {
+  const rawStatus = node.status ? String(node.status).trim().toLowerCase() : '';
+  if (rawStatus && statusDisplayMap[rawStatus]) {
+    return statusDisplayMap[rawStatus];
+  }
+  const rawText = node.statusText ? String(node.statusText).trim().toLowerCase() : '';
+  if (rawText && statusDisplayMap[rawText]) {
+    return statusDisplayMap[rawText];
+  }
+  return node.statusText || node.status || '';
+}
+
 function toFileNode(doc: BffDocument): FileNode {
   return {
     id: doc.id,
@@ -191,7 +217,7 @@ function TreeItem({ node, selectedId, onSelect, onDownload, onDelete }: {
             ? 'bg-[#FCE5E4] text-[#F54A45]'
             : 'bg-[#FFF2E0] text-[#FF7D00]'
         }`}>
-          {node.statusText || node.status}
+          {getStatusDisplay(node)}
         </span>
       )}
       {!isFolder && (
@@ -220,12 +246,113 @@ function TreeItem({ node, selectedId, onSelect, onDownload, onDelete }: {
 
 // ===== File Preview =====
 
-function FilePreview({ file, datasetName, content }: { file: FileNode; datasetName: string; content: string }) {
-  const renderContent = (text: string) => {
+const OFFICE_EXTENSIONS = new Set([
+  'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx',
+]);
+
+const IMAGE_EXTENSIONS = new Set([
+  'jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg', 'ico',
+]);
+
+function getFileExtension(name: string): string {
+  const parts = name.split('.');
+  return parts.length > 1 ? parts[parts.length - 1].toLowerCase() : '';
+}
+
+function isPdfFile(name: string): boolean {
+  return getFileExtension(name) === 'pdf';
+}
+
+function isImageFile(name: string): boolean {
+  return IMAGE_EXTENSIONS.has(getFileExtension(name));
+}
+
+function isOfficeFile(name: string): boolean {
+  return OFFICE_EXTENSIONS.has(getFileExtension(name));
+}
+
+function isMarkdownFile(name: string): boolean {
+  const ext = getFileExtension(name);
+  return ext === 'md' || ext === 'markdown';
+}
+
+function isDocxFile(name: string): boolean {
+  return getFileExtension(name) === 'docx';
+}
+
+function isXlsxFile(name: string): boolean {
+  const ext = getFileExtension(name);
+  return ext === 'xlsx' || ext === 'xls';
+}
+
+function isPptxFile(name: string): boolean {
+  return getFileExtension(name) === 'pptx';
+}
+
+async function convertDocxToHtml(blob: Blob): Promise<string> {
+  const mammoth = await import('mammoth');
+  const arrayBuffer = await blob.arrayBuffer();
+  const result = await mammoth.default.convertToHtml({ arrayBuffer });
+  return result.value;
+}
+
+async function convertXlsxToHtml(blob: Blob): Promise<string> {
+  const XLSX = await import('xlsx');
+  const arrayBuffer = await blob.arrayBuffer();
+  const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+  let html = '';
+  for (const sheetName of workbook.SheetNames) {
+    const worksheet = workbook.Sheets[sheetName];
+    html += `<h4 class="text-[14px] font-semibold text-[#1F2329] mt-4 mb-2">${sheetName}</h4>`;
+    html += XLSX.utils.sheet_to_html(worksheet, { id: '', editable: false });
+  }
+  return html;
+}
+
+async function convertPptxToText(blob: Blob): Promise<string> {
+  const JSZip = (await import('jszip')).default;
+  const arrayBuffer = await blob.arrayBuffer();
+  const zip = await JSZip.loadAsync(arrayBuffer);
+  const slideNames = Object.keys(zip.files)
+    .filter(path => /^ppt\/slides\/slide\d+\.xml$/.test(path))
+    .sort();
+  const parts: string[] = [];
+  for (const name of slideNames) {
+    const xml = await zip.files[name].async('string');
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(xml, 'application/xml');
+    const texts = Array.from(doc.getElementsByTagName('a:t')).map(t => t.textContent || '').filter(Boolean);
+    if (texts.length > 0) {
+      parts.push(`--- ${name.replace('ppt/slides/', '').replace('.xml', '')} ---\n${texts.join('\n')}`);
+    }
+  }
+  return parts.length > 0 ? parts.join('\n\n') : '无法提取 PPT 内容';
+}
+
+function looksLikeBinary(text: string): boolean {
+  // 出现大量 Unicode 替换字符或大量不可打印控制字符，说明是二进制被当文本读取
+  const replacement = (text.match(/\uFFFD/g) || []).length;
+  let control = 0;
+  for (let i = 0; i < text.length; i++) {
+    const code = text.charCodeAt(i);
+    if (code < 32 && code !== 9 && code !== 10 && code !== 13) control++;
+  }
+  return replacement > 10 || (text.length > 0 && control > text.length * 0.05);
+}
+
+function FilePreview({ file, datasetName, content, fileUrl, officeHtml, officeError }: {
+  file: FileNode;
+  datasetName: string;
+  content: string;
+  fileUrl: string | null;
+  officeHtml: string | null;
+  officeError: string | null;
+}) {
+  const renderMarkdown = (text: string) => {
     const lines = text.split('\n');
     const elements: React.ReactNode[] = [];
     let inCodeBlock = false, codeContent = '', inTable = false, tableRows: string[][] = [];
-    const flushCode = () => { if (codeContent) { elements.push(<pre key={`c-${elements.length}`} className="bg-[#F2F3F5] rounded-lg p-4 my-3 overflow-x-auto"><code className="text-[13px] text-[#3370FF] font-mono whitespace-pre">{codeContent}</code></pre>); codeContent = ''; } };
+    const flushCode = () => { if (codeContent) { elements.push(<pre key={`c-${elements.length}`} className="bg-[#F2F3F5] rounded-lg p-4 my-3 overflow-x-auto"><code className="text-[13px] text-[#3370FF] font-mono whitespace-pre-wrap break-words">{codeContent}</code></pre>); codeContent = ''; } };
     const flushTable = () => { if (tableRows.length > 0) { elements.push(<table key={`t-${elements.length}`} className="w-full my-3 border-collapse"><thead><tr className="bg-[#F2F3F5]">{tableRows[0].map((c, i) => <th key={i} className="text-left px-3 py-2 text-[12px] text-[#8F959E] font-medium border border-[#DEE0E3]">{c}</th>)}</tr></thead><tbody>{tableRows.slice(2).map((r, ri) => <tr key={ri} className="hover:bg-[#F8F9FA]">{r.map((c, ci) => <td key={ci} className="px-3 py-2 text-[13px] text-[#1F2329] border border-[#EBEBEB]">{c}</td>)}</tr>)}</tbody></table>); tableRows = []; } };
     lines.forEach((line, i) => {
       const t = line.trim();
@@ -247,14 +374,79 @@ function FilePreview({ file, datasetName, content }: { file: FileNode; datasetNa
     return elements;
   };
 
+  const renderPlainText = (text: string) => (
+    <pre className="whitespace-pre-wrap break-words font-mono text-[14px] text-[#1F2329] leading-relaxed">
+      {text}
+    </pre>
+  );
+
+  const renderUnsupported = () => (
+    <div className="flex flex-col items-center justify-center py-16 text-center">
+      <FileText className="w-12 h-12 text-[#DEE0E3] mb-4" />
+      <p className="text-[14px] text-[#646A73] mb-1">该文件类型暂不支持预览</p>
+      <p className="text-[12px] text-[#BBBFC4]">请点击右上角下载按钮查看文件内容</p>
+    </div>
+  );
+
+  let body: React.ReactNode;
+  if (officeError) {
+    body = (
+      <div className="flex flex-col items-center justify-center py-16 text-center">
+        <FileText className="w-12 h-12 text-[#DEE0E3] mb-4" />
+        <p className="text-[14px] text-[#646A73] mb-1">{officeError}</p>
+        <p className="text-[12px] text-[#BBBFC4]">请点击右上角下载按钮查看文件内容</p>
+      </div>
+    );
+  } else if (isDocxFile(file.name) && officeHtml) {
+    body = (
+      <div
+        className="docx-preview text-[14px] text-[#1F2329] leading-relaxed break-words"
+        dangerouslySetInnerHTML={{ __html: officeHtml }}
+      />
+    );
+  } else if (isXlsxFile(file.name) && officeHtml) {
+    body = (
+      <div
+        className="xlsx-preview overflow-x-auto text-[13px]"
+        dangerouslySetInnerHTML={{ __html: officeHtml }}
+      />
+    );
+  } else if (isPptxFile(file.name)) {
+    body = renderPlainText(content);
+  } else if (isPdfFile(file.name) && fileUrl) {
+    body = (
+      <iframe
+        src={fileUrl}
+        title={file.name}
+        className="w-full min-h-[70vh] rounded-lg border border-[#DEE0E3]"
+      />
+    );
+  } else if (isImageFile(file.name) && fileUrl) {
+    body = (
+      <img
+        src={fileUrl}
+        alt={file.name}
+        className="max-w-full h-auto rounded-lg border border-[#DEE0E3]"
+      />
+    );
+  } else if (isOfficeFile(file.name)) {
+    body = renderUnsupported();
+  } else if (looksLikeBinary(content)) {
+    body = renderUnsupported();
+  } else if (isMarkdownFile(file.name)) {
+    body = renderMarkdown(content);
+  } else {
+    body = renderPlainText(content);
+  }
+
   return (
-    <div className="max-w-[800px] mx-auto">
+    <div className="max-w-[800px] mx-auto pb-6">
       <div className="flex items-center gap-1.5 text-[11px] text-[#BBBFC4] mb-6 flex-wrap">
         <span>{datasetName}</span>
         <ChevronRight className="w-2.5 h-2.5" />
         <span className="text-[#3370FF] font-medium">{file.name}</span>
       </div>
-      <div className="bg-white rounded-xl p-8 border border-[#DEE0E3] shadow-sm">{renderContent(content)}</div>
+      <div className="bg-white rounded-xl p-6 border border-[#DEE0E3] shadow-sm">{body}</div>
     </div>
   );
 }
@@ -572,6 +764,9 @@ function RetrievalTestPanel({ datasetId }: { datasetId: string }) {
 export function KnowledgeBaseRightPanel({ file, deptPath }: { file: FileNode | null; deptPath: string }) {
   const [datasetInfo, setDatasetInfo] = useState<BffDataset | null>(null);
   const [content, setContent] = useState('# 暂无内容\n\n该文件暂无预览内容。');
+  const [fileUrl, setFileUrl] = useState<string | null>(null);
+  const [officeHtml, setOfficeHtml] = useState<string | null>(null);
+  const [officeError, setOfficeError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -583,14 +778,42 @@ export function KnowledgeBaseRightPanel({ file, deptPath }: { file: FileNode | n
   useEffect(() => {
     if (!file?.documentId) return;
     let cancelled = false;
+    let currentUrl: string | null = null;
     /* eslint-disable react-hooks/set-state-in-effect -- sync loading state for file preview */
     setLoading(true);
+    setOfficeHtml(null);
+    setOfficeError(null);
     bffService.knowledge.downloadDocument(deptPath, file.documentId)
-      .then(blob => blob.text())
-      .then(text => { if (!cancelled) setContent(text || '# 空文件\n\n该文件没有内容。'); })
-      .catch(() => { if (!cancelled) setContent('# 加载失败\n\n无法读取文件内容。'); })
+      .then(async blob => {
+        currentUrl = URL.createObjectURL(blob);
+        if (!cancelled) setFileUrl(currentUrl);
+
+        const name = file.name || '';
+        if (isDocxFile(name)) {
+          const html = await convertDocxToHtml(blob);
+          if (!cancelled) setOfficeHtml(html || '<p>文档内容为空</p>');
+        } else if (isXlsxFile(name)) {
+          const html = await convertXlsxToHtml(blob);
+          if (!cancelled) setOfficeHtml(html || '<p>表格内容为空</p>');
+        } else if (isPptxFile(name)) {
+          const text = await convertPptxToText(blob);
+          if (!cancelled) setContent(text || 'PPT 内容为空');
+        } else {
+          const text = await blob.text();
+          if (!cancelled) setContent(text || '# 空文件\n\n该文件没有内容。');
+        }
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        console.error('[KnowledgeBase] preview conversion failed:', err);
+        setOfficeError('文件预览转换失败，请尝试下载查看');
+        setContent('# 加载失败\n\n无法读取文件内容。');
+      })
       .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      if (currentUrl) URL.revokeObjectURL(currentUrl);
+    };
   }, [file, deptPath]);
 
   if (!deptPath) {
@@ -650,7 +873,7 @@ export function KnowledgeBaseRightPanel({ file, deptPath }: { file: FileNode | n
             <div className="w-8 h-8 border-2 border-[#3370FF] border-t-transparent rounded-full animate-spin" />
           </div>
         ) : (
-          <FilePreview file={file} datasetName={datasetInfo?.name || deptPath} content={content} />
+          <FilePreview file={file} datasetName={datasetInfo?.name || deptPath} content={content} fileUrl={fileUrl} officeHtml={officeHtml} officeError={officeError} />
         )}
         <RetrievalTestPanel datasetId={deptPath} />
       </div>

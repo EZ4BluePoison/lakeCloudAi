@@ -5,7 +5,19 @@ export type NavModule =
   | 'knowledgeBase'
   | 'superAgent'
   | 'createAgent'
-  | 'promptRepo';
+  | 'promptRepo'
+  | 'userManagement'
+  | 'orgManagement'
+  | 'roleManagement';
+
+export type PermissionCode =
+  | 'user:view' | 'user:create' | 'user:edit' | 'user:delete'
+  | 'org:view' | 'org:create' | 'org:edit' | 'org:delete'
+  | 'role:view' | 'role:create' | 'role:edit' | 'role:delete'
+  | 'agent:view' | 'agent:create' | 'agent:edit' | 'agent:delete'
+  | 'knowledge:view' | 'knowledge:create' | 'knowledge:edit' | 'knowledge:delete'
+  | 'prompt:view' | 'prompt:create' | 'prompt:edit' | 'prompt:delete'
+  | 'app:view' | 'app:create' | 'app:edit' | 'app:delete';
 export type KnowledgeSubLevel = string;
 export type PermissionLevel = 'group' | 'dept' | 'personal';
 export type LLMProvider = 'openai' | 'anthropic' | 'azure' | 'ollama' | 'wuxidata' | 'custom';
@@ -373,6 +385,62 @@ export interface OrgPath {
   subGroup: string;
   company: string;
   department: string;
+}
+
+// ==================== 用户 / 组织 / 权限 ====================
+
+export type UserStatus = 'active' | 'inactive' | 'locked';
+
+export interface User {
+  id: string;
+  name: string;
+  username?: string;
+  employeeNo?: string;
+  phone?: string;
+  email?: string;
+  departmentId?: string;
+  departmentName?: string;
+  roleIds?: string[];
+  roles?: Role[];
+  status: UserStatus;
+  avatar?: string;
+}
+
+export interface Department {
+  id: string;
+  name: string;
+  code?: string;
+  parentId?: string;
+  level?: number;
+  children?: Department[];
+  status?: 'active' | 'inactive';
+}
+
+export interface Role {
+  id: string;
+  name: string;
+  code: string;
+  description?: string;
+  permissionCodes: PermissionCode[];
+  userCount?: number;
+  status?: 'active' | 'inactive';
+}
+
+export interface Permission {
+  code: PermissionCode;
+  name: string;
+  group: string;
+  description?: string;
+}
+
+export interface LoginCredentials {
+  username: string;
+  password: string;
+}
+
+export interface OAuth2CallbackParams {
+  code: string;
+  state?: string;
 }
 
 // 智能体提示词配置

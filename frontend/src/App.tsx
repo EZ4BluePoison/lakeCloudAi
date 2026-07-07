@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { PanelLeft, PanelLeftClose } from 'lucide-react';
 import Sidebar from '@/components/layout/Sidebar';
@@ -12,7 +12,13 @@ import SuperAgentModule from '@/components/modules/SuperAgentModule';
 import { KnowledgeBaseMiddlePanel, KnowledgeBaseRightPanel } from '@/components/modules/KnowledgeBaseModule';
 import { CreateAgentModule } from '@/components/modules/CreateAgentModule';
 import { PromptRepoModule } from '@/components/modules/PromptRepoModule';
+import LoginPage from '@/components/modules/LoginPage';
+import OAuth2Callback from '@/components/modules/OAuth2Callback';
+import { UserManagementModule } from '@/components/modules/UserManagementModule';
+import { OrgManagementModule } from '@/components/modules/OrgManagementModule';
+import { RoleManagementModule } from '@/components/modules/RoleManagementModule';
 
+import { useAuthStore } from '@/store/authStore';
 import type { NavModule, KnowledgeSubLevel, FileNode, MyAgent } from '@/types';
 
 
@@ -48,7 +54,10 @@ export default function App() {
     activeModule === 'agentPlaza' ||
     activeModule === 'superAgent' ||
     activeModule === 'createAgent' ||
-    activeModule === 'promptRepo';
+    activeModule === 'promptRepo' ||
+    activeModule === 'userManagement' ||
+    activeModule === 'orgManagement' ||
+    activeModule === 'roleManagement';
 
   const handleModuleChange = useCallback((module: NavModule) => {
     setActiveModule(module);
@@ -112,8 +121,36 @@ export default function App() {
     setActiveModule('myAgents');
   }, []);
 
+  // Auth state & guards
+  const { user, isAuthenticated, isLoading: authLoading, fetchCurrentUser } = useAuthStore();
+  const isCallback = window.location.pathname === '/oauth2/callback';
+
+  useEffect(() => {
+    if (!isCallback) {
+      fetchCurrentUser().catch(() => {
+        // 未登录时保持登录页
+      });
+    }
+  }, [fetchCurrentUser, isCallback]);
+
+  if (isCallback) {
+    return <OAuth2Callback />;
+  }
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen w-full flex items-center justify-center bg-[#F5F6F7]">
+        <div className="w-8 h-8 border-2 border-[#3370FF] border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (!isAuthenticated || !user) {
+    return <LoginPage />;
+  }
+
   return (
-    <div className="flex w-screen h-screen overflow-hidden bg-[#F5F6F7]">
+    <div key={user.id} className="flex w-screen h-screen overflow-hidden bg-[#F5F6F7]">
       {/* Left Sidebar */}
       <Sidebar
         activeModule={activeModule}
@@ -344,35 +381,75 @@ export default function App() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.2 }}
-              className="flex-1 flex flex-col"
+              className="flex-1 flex flex-col min-h-0"
             >
               <KnowledgeBaseRightPanel file={selectedFileNode} deptPath={activeKnowledgeSub || ''} />
+            </motion.div>
+          )}
+
+          {/* User Management */}
+          {activeModule === 'userManagement' && (
+            <motion.div
+              key="user-management"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="flex-1 flex flex-col min-h-0"
+            >
+              <UserManagementModule />
+            </motion.div>
+          )}
+
+          {/* Organization Management */}
+          {activeModule === 'orgManagement' && (
+            <motion.div
+              key="org-management"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="flex-1 flex flex-col min-h-0"
+            >
+              <OrgManagementModule />
+            </motion.div>
+          )}
+
+          {/* Role Management */}
+          {activeModule === 'roleManagement' && (
+            <motion.div
+              key="role-management"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="flex-1 flex flex-col min-h-0"
+            >
+              <RoleManagementModule />
             </motion.div>
           )}
         </AnimatePresence>
       </section>
 
       {/* Floating 3D Cloud Logo Button — bottom right */}
-      {activeModule !== 'superAgent' && (
-        <button
-          onClick={() => setActiveModule('superAgent')}
-          className="fixed bottom-24 right-6 z-50 w-16 h-16 rounded-full flex items-center justify-center transition-all duration-300 hover:scale-110 active:scale-95"
-          style={{
-            boxShadow: '0 4px 20px rgba(51, 112, 255, 0.4), 0 8px 32px rgba(0, 229, 255, 0.3)',
-          }}
-          title="超级助手"
-        >
-          <img
-            src="/logo-taihu.png"
-            alt="超级助手"
-            className="w-full h-full object-contain drop-shadow-lg animate-float"
-          />
-          {/* Pulse ring */}
-          <div className="absolute inset-0 rounded-full pointer-events-none animate-ping opacity-15" style={{
-            background: 'radial-gradient(circle, rgba(51,112,255,0.3) 0%, transparent 70%)',
-          }} />
-        </button>
-      )}
+      <button
+        onClick={() => setActiveModule('superAgent')}
+        className="fixed bottom-24 right-6 z-50 w-16 h-16 rounded-full flex items-center justify-center transition-all duration-300 hover:scale-110 active:scale-95"
+        style={{
+          boxShadow: '0 4px 20px rgba(51, 112, 255, 0.4), 0 8px 32px rgba(0, 229, 255, 0.3)',
+        }}
+        title="超级助手"
+      >
+        <img
+          src="/logo-taihu.png"
+          alt="超级助手"
+          className="w-full h-full object-contain drop-shadow-lg animate-float"
+        />
+        {/* Pulse ring */}
+        <div className="absolute inset-0 rounded-full pointer-events-none animate-ping opacity-15" style={{
+          background: 'radial-gradient(circle, rgba(51,112,255,0.3) 0%, transparent 70%)',
+        }} />
+      </button>
     </div>
   );
 }

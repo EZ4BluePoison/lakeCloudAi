@@ -251,3 +251,19 @@ export async function deleteConversation(conversationId: string) {
 export async function sendMessageFeedback(messageId: string, rating: 'like' | 'dislike', content?: string) {
   return bffService.chat.sendFeedback(messageId, rating, content);
 }
+
+/** 流式发送消息，逐段产出文本 */
+export async function* sendMessageStream(
+  agentId: string,
+  agentName: string,
+  _agentDescription: string,
+  userMessage: string,
+  conversationId?: string
+): AsyncGenerator<{ text?: string; conversationId?: string }> {
+  yield* bffService.chat.sendMessageStream({
+    agentId,
+    agentName,
+    query: userMessage,
+    conversationId,
+  });
+}

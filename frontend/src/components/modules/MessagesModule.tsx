@@ -11,10 +11,51 @@ import {
 import type { ChatPanelMessage as ChatMessage, ConversationMessage, MyAgent, Agent, PlazaAgent } from '@/types';
 import { bffService } from '@/services/bffService';
 import { mapApplicationToPlazaAgent } from '@/services/agentService';
-import { sendMessage as chatServiceSendMessage, type ChatResponse } from '@/services/chatService';
+import { sendMessageStream as chatServiceSendMessageStream } from '@/services/chatService';
 import { useConversationStore } from '@/store/conversationStore';
 import { Plus, Trash2, History, X } from 'lucide-react';
 import { VoiceInputButton } from '@/components/ui/VoiceInputButton';
+
+/** 打字机效果：把 text 逐字显示出来，完成后触发 onDone */
+function TypewriterText({
+  text,
+  speed = 12,
+  format,
+  onProgress,
+  onDone,
+}: {
+  text: string;
+  speed?: number;
+  format: (content: string) => string;
+  onProgress?: (length: number) => void;
+  onDone?: () => void;
+}) {
+  const [displayed, setDisplayed] = useState(text);
+  const indexRef = useRef(displayed.length);
+
+  useEffect(() => {
+    if (text.length <= indexRef.current) {
+      if (text !== displayed) setDisplayed(text);
+      onProgress?.(text.length);
+      onDone?.();
+      return;
+    }
+    const timer = window.setInterval(() => {
+      indexRef.current += 1;
+      const next = text.slice(0, indexRef.current);
+      setDisplayed(next);
+      onProgress?.(next.length);
+      if (indexRef.current >= text.length) {
+        clearInterval(timer);
+        onDone?.();
+      }
+    }, speed);
+    return () => clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [text, speed, format, onProgress, onDone]);
+
+  return <span dangerouslySetInnerHTML={{ __html: format(displayed) }} />;
+}
 
 const iconMap: Record<string, React.ElementType> = {
   BookOpen, FileText, CalendarDays, GitBranch,
@@ -378,11 +419,16 @@ export function MessagesRightPanel({
   const Icon = iconMap[agent.icon] || BookOpen;
   const isFav = favorites.includes(agentId);
   const [inputValue, setInputValue] = useState('');
-  const [isTyping, setIsTyping] = useState(false);
   const [conversationId, setConversationId] = useState<string | undefined>(undefined);
+  const [streaming, setStreaming] = useState<{ sessionId: string; content: string; conversationId?: string } | null>(null);
   const [showHistory, setShowHistory] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const streamDoneRef = useRef(false);
+  const streamDisplayedLenRef = useRef(0);
+  const lastUserQuestionRef = useRef('');
+  const streamingRef = useRef(streaming);
+  useEffect(() => { streamingRef.current = streaming; }, [streaming]);
 
   const {
     sessions,
@@ -438,7 +484,7 @@ export function MessagesRightPanel({
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages, isTyping, scrollToBottom]);
+  }, [messages, streaming, scrollToBottom]);
 
   const extractAndCleanContent = (content: string): { cleanContent: string; options: string[] } => {
     let cleanContent = content;
@@ -591,42 +637,78 @@ export function MessagesRightPanel({
     );
   };
 
+  const finalizeStreaming = useCallback(() => {
+    const current = streamingRef.current;
+    if (!streamDoneRef.current || !current) return;
+    const fullText = current.content;
+    if (streamDisplayedLenRef.current < fullText.length) return;
+
+    if (current.conversationId) {
+      setConversationId(current.conversationId);
+    }
+    const followUpOptions = generateFollowUpOptions(lastUserQuestionRef.current, fullText);
+    addStoreMessage(current.sessionId, 'assistant', fullText, { followUpOptions });
+    setStreaming(null);
+    streamDoneRef.current = false;
+    streamDisplayedLenRef.current = 0;
+    lastUserQuestionRef.current = '';
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [addStoreMessage]);
+
   const handleSend = async () => {
     const text = inputValue.trim();
-    if (!text || !currentSession) return;
+    if (!text || !currentSession || streaming) return;
 
     addStoreMessage(currentSession.id, 'user', text);
     setInputValue('');
-    setIsTyping(true);
+    streamDoneRef.current = false;
+    streamDisplayedLenRef.current = 0;
+    lastUserQuestionRef.current = text;
+    setStreaming({ sessionId: currentSession.id, content: '', conversationId: undefined });
+
+    let finalConversationId = conversationId;
 
     try {
-      const response: ChatResponse = await chatServiceSendMessage(
+      for await (const chunk of chatServiceSendMessageStream(
         agentId,
         agent.name,
         agent.description,
         text,
         conversationId
-      );
-
-      // BFF 返回的会话 ID 用于维持多轮对话
-      if (response.conversationId) {
-        setConversationId(response.conversationId);
+      )) {
+        if (chunk.conversationId) {
+          finalConversationId = chunk.conversationId;
+        }
+        if (chunk.text) {
+          setStreaming(prev => {
+            if (!prev) return prev;
+            const next = { ...prev, content: prev.content + chunk.text };
+            if (chunk.conversationId) next.conversationId = chunk.conversationId;
+            else if (finalConversationId) next.conversationId = finalConversationId;
+            return next;
+          });
+        }
+        scrollToBottom();
       }
 
-      const followUpOptions = response.followUpOptions?.length
-        ? response.followUpOptions.slice(0, 3)
-        : generateFollowUpOptions(text, response.content);
-
-      addStoreMessage(currentSession.id, 'assistant', response.content, { followUpOptions });
+      setStreaming(prev => prev ? { ...prev, conversationId: finalConversationId || prev.conversationId } : prev);
+      streamDoneRef.current = true;
+      finalizeStreaming();
     } catch (error) {
       console.error('Chat API error:', error);
+      const errorMsg = error instanceof Error ? error.message : '未知错误';
+      const fullText = streamingRef.current?.content || '';
       addStoreMessage(
         currentSession.id,
         'assistant',
-        `抱歉，我暂时无法回答您的问题。错误信息：${error instanceof Error ? error.message : '未知错误'}`
+        fullText
+          ? `${fullText}\n\n[回复中断] 抱歉，后续内容加载失败：${errorMsg}`
+          : `抱歉，我暂时无法回答您的问题。错误信息：${errorMsg}`
       );
-    } finally {
-      setIsTyping(false);
+      setStreaming(null);
+      streamDoneRef.current = false;
+      streamDisplayedLenRef.current = 0;
+      lastUserQuestionRef.current = '';
     }
   };
 
@@ -730,16 +812,28 @@ export function MessagesRightPanel({
             </div>
           ))}
 
-          {isTyping && (
+          {streaming && streaming.sessionId === currentSession?.id && (
             <div className="flex gap-3 fade-in-up">
               <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: agent.avatarGradient }}>
                 <Icon className="w-4 h-4 text-white" />
               </div>
-              <div className="bg-white rounded-lg rounded-bl-sm px-4 py-3 shadow-sm">
-                <div className="flex gap-1">
-                  <span className="w-2 h-2 rounded-full bg-[#3370FF] animate-bounce" style={{ animationDelay: '0ms' }} />
-                  <span className="w-2 h-2 rounded-full bg-[#3370FF] animate-bounce" style={{ animationDelay: '150ms' }} />
-                  <span className="w-2 h-2 rounded-full bg-[#3370FF] animate-bounce" style={{ animationDelay: '300ms' }} />
+              <div className="max-w-[560px]">
+                <div className="px-4 py-3 text-[14px] leading-[1.6] rounded-lg bg-white rounded-bl-sm text-[#1F2329] shadow-sm min-h-[44px]">
+                  {streaming.content ? (
+                    <TypewriterText
+                      text={streaming.content}
+                      speed={12}
+                      format={formatMessageContent}
+                      onProgress={(len) => { streamDisplayedLenRef.current = len; scrollToBottom(); }}
+                      onDone={finalizeStreaming}
+                    />
+                  ) : (
+                    <div className="flex gap-1">
+                      <span className="w-2 h-2 rounded-full bg-[#3370FF] animate-bounce" style={{ animationDelay: '0ms' }} />
+                      <span className="w-2 h-2 rounded-full bg-[#3370FF] animate-bounce" style={{ animationDelay: '150ms' }} />
+                      <span className="w-2 h-2 rounded-full bg-[#3370FF] animate-bounce" style={{ animationDelay: '300ms' }} />
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -775,9 +869,10 @@ export function MessagesRightPanel({
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder={`给 ${agent.name} 发送消息...`}
+              placeholder={streaming ? '对方正在输入...' : `给 ${agent.name} 发送消息...`}
               rows={1}
-              className="flex-1 bg-transparent text-[14px] text-[#1F2329] placeholder:text-[#BBBFC4] resize-none outline-none min-h-[24px] max-h-[120px] py-1"
+              disabled={!!streaming}
+              className="flex-1 bg-transparent text-[14px] text-[#1F2329] placeholder:text-[#BBBFC4] resize-none outline-none min-h-[24px] max-h-[120px] py-1 disabled:opacity-60"
               style={{ fieldSizing: 'content' }}
             />
             <div className="flex items-center gap-1 pb-0.5">
@@ -790,9 +885,9 @@ export function MessagesRightPanel({
               />
               <button
                 onClick={handleSend}
-                disabled={!inputValue.trim()}
+                disabled={!inputValue.trim() || !!streaming}
                 className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-200 ${
-                  inputValue.trim() ? 'bg-[#3370FF] text-white hover:bg-[#245BDB]' : 'bg-[#EBEBEB] text-[#BBBFC4] cursor-not-allowed'
+                  inputValue.trim() && !streaming ? 'bg-[#3370FF] text-white hover:bg-[#245BDB]' : 'bg-[#EBEBEB] text-[#BBBFC4] cursor-not-allowed'
                 }`}
               >
                 <Send className="w-4 h-4" />
