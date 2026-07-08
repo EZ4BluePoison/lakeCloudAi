@@ -5,9 +5,82 @@ export type NavModule =
   | 'knowledgeBase'
   | 'superAgent'
   | 'createAgent'
-  | 'promptRepo';
+  | 'promptRepo'
+  | 'userManagement'
+  | 'orgManagement'
+  | 'roleManagement'
+  | 'permissionManagement';
 export type KnowledgeSubLevel = string;
 export type PermissionLevel = 'group' | 'dept' | 'personal';
+
+/** 后端系统权限码。空字符串占位以允许动态权限字符串 */
+export type BackendPermissionCode =
+  | 'admin:user:create' | 'admin:user:read' | 'admin:user:update' | 'admin:user:delete'
+  | 'admin:organization:create' | 'admin:organization:read' | 'admin:organization:update' | 'admin:organization:delete'
+  | 'admin:role:create' | 'admin:role:read' | 'admin:role:update' | 'admin:role:delete'
+  | 'admin:permission:create' | 'admin:permission:read' | 'admin:permission:update' | 'admin:permission:delete'
+  | (string & {});
+
+export type PermissionCode = BackendPermissionCode;
+
+export type UserStatus = 'ACTIVE' | 'DISABLED';
+export type OrgStatus = 'ACTIVE' | 'DISABLED';
+export type RoleStatus = 'ACTIVE' | 'DISABLED';
+export type RoleScope = 'PLATFORM' | 'TENANT';
+
+export interface User {
+  id: string;
+  username: string;
+  displayName: string;
+  email?: string | null;
+  phone?: string | null;
+  organizationId?: string | null;
+  status: UserStatus;
+  tenantId?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface Organization {
+  id: string;
+  code?: string;
+  name: string;
+  parentId?: string | null;
+  sortOrder?: number;
+  status: OrgStatus;
+  tenantId?: string;
+  createdAt?: string;
+  children?: Organization[];
+}
+
+export interface Role {
+  id: string;
+  code: string;
+  name: string;
+  description?: string | null;
+  scope: RoleScope;
+  status: RoleStatus;
+  tenantId?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  permissionIds?: string[];
+}
+
+export interface Permission {
+  id: string;
+  code: PermissionCode;
+  name: string;
+  description?: string | null;
+  category: string;
+  isSystem?: boolean;
+  tenantId?: string;
+  createdAt?: string;
+}
+
+export interface PermissionCategoryGroup {
+  category: string;
+  permissions: Permission[];
+}
 export type LLMProvider = 'openai' | 'anthropic' | 'azure' | 'ollama' | 'wuxidata' | 'custom';
 
 export interface LLMConfig {

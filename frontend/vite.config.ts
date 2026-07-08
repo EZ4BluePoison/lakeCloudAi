@@ -15,6 +15,18 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/knowledge-api/, ''),
       },
+      '/api/v1': {
+        target: 'http://localhost:9090',
+        changeOrigin: true,
+      },
+      '/api/auth': {
+        target: 'http://localhost:9090',
+        changeOrigin: true,
+      },
+      '/api/admin': {
+        target: 'http://localhost:9090',
+        changeOrigin: true,
+      },
     },
   },
   resolve: {

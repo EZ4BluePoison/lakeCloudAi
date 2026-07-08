@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { PanelLeft, PanelLeftClose } from 'lucide-react';
 import Sidebar from '@/components/layout/Sidebar';
@@ -12,11 +12,23 @@ import SuperAgentModule from '@/components/modules/SuperAgentModule';
 import { KnowledgeBaseMiddlePanel, KnowledgeBaseRightPanel } from '@/components/modules/KnowledgeBaseModule';
 import { CreateAgentModule } from '@/components/modules/CreateAgentModule';
 import { PromptRepoModule } from '@/components/modules/PromptRepoModule';
+import LoginPage from '@/components/modules/LoginPage';
+import UserManagementModule from '@/components/modules/UserManagementModule';
+import OrgManagementModule from '@/components/modules/OrgManagementModule';
+import RoleManagementModule from '@/components/modules/RoleManagementModule';
+import PermissionManagementModule from '@/components/modules/PermissionManagementModule';
+import { useAuthStore } from '@/store/authStore';
 
 import type { NavModule, KnowledgeSubLevel, FileNode, MyAgent } from '@/types';
 
 
 export default function App() {
+  const { isAuthenticated, fetchCurrentUser } = useAuthStore();
+
+  useEffect(() => {
+    void fetchCurrentUser();
+  }, [fetchCurrentUser]);
+
   // Module state
   const [activeModule, setActiveModule] = useState<NavModule>('superAgent');
   const [activeKnowledgeSub, setActiveKnowledgeSub] = useState<KnowledgeSubLevel | null>('group');
@@ -48,7 +60,11 @@ export default function App() {
     activeModule === 'agentPlaza' ||
     activeModule === 'superAgent' ||
     activeModule === 'createAgent' ||
-    activeModule === 'promptRepo';
+    activeModule === 'promptRepo' ||
+    activeModule === 'userManagement' ||
+    activeModule === 'orgManagement' ||
+    activeModule === 'roleManagement' ||
+    activeModule === 'permissionManagement';
 
   const handleModuleChange = useCallback((module: NavModule) => {
     setActiveModule(module);
@@ -111,6 +127,10 @@ export default function App() {
     setPendingPrompt('');
     setActiveModule('myAgents');
   }, []);
+
+  if (!isAuthenticated) {
+    return <LoginPage />;
+  }
 
   return (
     <div className="flex w-screen h-screen overflow-hidden bg-[#F5F6F7]">
@@ -347,6 +367,28 @@ export default function App() {
               className="flex-1 flex flex-col"
             >
               <KnowledgeBaseRightPanel file={selectedFileNode} deptPath={activeKnowledgeSub || ''} />
+            </motion.div>
+          )}
+
+          {/* Admin Modules */}
+          {activeModule === 'userManagement' && (
+            <motion.div key="user-management" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} className="flex-1 flex flex-col min-h-0">
+              <UserManagementModule />
+            </motion.div>
+          )}
+          {activeModule === 'orgManagement' && (
+            <motion.div key="org-management" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} className="flex-1 flex flex-col min-h-0">
+              <OrgManagementModule />
+            </motion.div>
+          )}
+          {activeModule === 'roleManagement' && (
+            <motion.div key="role-management" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} className="flex-1 flex flex-col min-h-0">
+              <RoleManagementModule />
+            </motion.div>
+          )}
+          {activeModule === 'permissionManagement' && (
+            <motion.div key="permission-management" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} className="flex-1 flex flex-col min-h-0">
+              <PermissionManagementModule />
             </motion.div>
           )}
         </AnimatePresence>

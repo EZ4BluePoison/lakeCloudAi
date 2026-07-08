@@ -1,11 +1,13 @@
 import { useState, useCallback, useEffect } from 'react';
 import {
   MessageSquare, Bot, Store, BookOpen, Database,
-  ChevronDown, Sparkles, FileText, Plus, Cloud
+  ChevronDown, Sparkles, FileText, Plus, Cloud,
+  Users, Building2, Shield, KeyRound, LogOut
 } from 'lucide-react';
 import type { NavModule, KnowledgeSubLevel } from '@/types';
 
 import { bffService, type BffDataset } from '@/services/bffService';
+import { useAuthStore } from '@/store/authStore';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 
@@ -27,6 +29,7 @@ interface NavItem {
   icon: React.ElementType;
   badge?: string;
   badgeColor?: string;
+  requiredPermission?: string;
 }
 
 const mainNavItems: NavItem[] = [
@@ -37,11 +40,19 @@ const mainNavItems: NavItem[] = [
   { id: 'promptRepo', label: '提示词仓库', icon: FileText },
 ];
 
+const systemNavItems: NavItem[] = [
+  { id: 'userManagement', label: '用户管理', icon: Users, requiredPermission: 'admin:user:read' },
+  { id: 'orgManagement', label: '组织架构', icon: Building2, requiredPermission: 'admin:organization:read' },
+  { id: 'roleManagement', label: '角色权限', icon: Shield, requiredPermission: 'admin:role:read' },
+  { id: 'permissionManagement', label: '权限管理', icon: KeyRound, requiredPermission: 'admin:permission:read' },
+];
+
 
 
 // ===== Sidebar Component =====
 
 export default function Sidebar({ activeModule, activeKnowledgeSub, onModuleChange, onKnowledgeSubChange, addedAgentCount, collapsed = false, onToggleCollapse, refreshToken = 0 }: SidebarProps) {
+  const { user, hasPermission, logout } = useAuthStore();
   const [kbExpanded, setKbExpanded] = useState(false);
   const [datasets, setDatasets] = useState<BffDataset[]>([]);
   const [datasetsLoading, setDatasetsLoading] = useState(false);
@@ -241,18 +252,54 @@ export default function Sidebar({ activeModule, activeKnowledgeSub, onModuleChan
           )}
         </div>
 
+        {/* System Management */}
+        {systemNavItems.some((item) => !item.requiredPermission || hasPermission(item.requiredPermission)) && (
+          <>
+            <div className="h-px bg-[#DEE0E3] my-2" />
+            <div className={`text-[11px] font-medium text-[#8F959E] mb-1 ${collapsed ? 'text-center' : 'px-2'}`}>系统管理</div>
+            {systemNavItems
+              .filter((item) => !item.requiredPermission || hasPermission(item.requiredPermission))
+              .map((item) => {
+                const isActive = activeModule === item.id;
+                const Icon = item.icon;
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => onModuleChange(item.id)}
+                    className={`
+                      flex items-center rounded-lg text-sm font-medium transition-all duration-150
+                      ${collapsed ? 'justify-center px-2 py-2' : 'gap-2.5 px-3 py-2'}
+                      ${isActive ? 'bg-[#E8F1FF] text-[#3370FF]' : 'text-[#646A73] hover:bg-[#EBEBEB] hover:text-[#1F2329]'}
+                    `}
+                  >
+                    <Icon className="w-[18px] h-[18px] flex-shrink-0" />
+                    {!collapsed && <span className="flex-1 text-left">{item.label}</span>}
+                  </button>
+                );
+              })}
+          </>
+        )}
       </nav>
 
       {/* User Footer */}
-      <div className={`h-[52px] flex items-center border-t border-[#DEE0E3] flex-shrink-0 ${collapsed ? 'justify-center px-2' : 'px-3 gap-2.5'}`}>
+      <div className={`min-h-[52px] flex items-center border-t border-[#DEE0E3] flex-shrink-0 ${collapsed ? 'justify-center px-2 py-2' : 'px-3 gap-2.5 py-2'}`}>
         <div className="w-8 h-8 rounded-full bg-[#3370FF] flex items-center justify-center text-white text-xs font-medium flex-shrink-0">
-          张
+          {user?.displayName?.[0] || user?.username?.[0] || 'U'}
         </div>
         {!collapsed && (
           <div className="flex-1 min-w-0">
-            <div className="text-[13px] text-[#1F2329] font-medium truncate">张经理</div>
-            <div className="text-[11px] text-[#8F959E] truncate">数字化部 · 在线</div>
+            <div className="text-[13px] text-[#1F2329] font-medium truncate">{user?.displayName || user?.username || '未登录'}</div>
+            <div className="text-[11px] text-[#8F959E] truncate">{user?.tenantId ? `租户 ${user.tenantId}` : '在线'}</div>
           </div>
+        )}
+        {!collapsed && (
+          <button
+            onClick={() => void logout()}
+            className="p-1.5 rounded-md text-[#8F959E] hover:text-[#F54A45] hover:bg-[#FFF2F0] transition-colors"
+            title="退出登录"
+          >
+            <LogOut className="w-4 h-4" />
+          </button>
         )}
       </div>
 
