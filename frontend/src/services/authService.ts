@@ -5,7 +5,8 @@ const ADMIN_BASE = '/api/admin';
 const TOKEN_KEY = 'lakecloud-access-token';
 
 export interface AuthResult {
-  token: string;
+  /** 登录接口返回的 accessToken */
+  accessToken: string;
   user: User;
   roles: string[];
   permissions: string[];
@@ -23,7 +24,7 @@ export interface JwtPayload {
   type?: string;
 }
 
-export function getApiToken(): string | undefined {
+export function getAccessToken(): string | undefined {
   try {
     return localStorage.getItem(TOKEN_KEY) || undefined;
   } catch {
@@ -31,10 +32,13 @@ export function getApiToken(): string | undefined {
   }
 }
 
-export function setApiToken(token: string | null): void {
+/** 兼容旧命名的别名 */
+export const getApiToken = getAccessToken;
+
+export function setAccessToken(accessToken: string | null): void {
   try {
-    if (token) {
-      localStorage.setItem(TOKEN_KEY, token);
+    if (accessToken) {
+      localStorage.setItem(TOKEN_KEY, accessToken);
     } else {
       localStorage.removeItem(TOKEN_KEY);
     }
@@ -43,11 +47,14 @@ export function setApiToken(token: string | null): void {
   }
 }
 
+/** 兼容旧命名的别名 */
+export const setApiToken = setAccessToken;
+
 export function getAuthHeaders(): Record<string, string> {
   const headers: Record<string, string> = {};
-  const token = getApiToken();
-  if (token) {
-    headers.Authorization = `Bearer ${token}`;
+  const accessToken = getAccessToken();
+  if (accessToken) {
+    headers.Authorization = `Bearer ${accessToken}`;
   }
   return headers;
 }
@@ -153,17 +160,17 @@ export async function login(credentials: LoginCredentials): Promise<AuthResult> 
     }),
   });
 
-  const token = loginResp.accessToken;
-  setApiToken(token);
+  const accessToken = loginResp.accessToken;
+  setAccessToken(accessToken);
 
-  const payload = parseJwt(token) || {};
+  const payload = parseJwt(accessToken) || {};
   const userId = loginResp.userId || payload.sub || payload.userId || '';
 
   const user = await getCurrentUser(userId);
   const roles = payload.roles || [];
   const permissions = payload.permissions || [];
 
-  return { token, user, roles, permissions };
+  return { accessToken, user, roles, permissions };
 }
 
 export async function refreshToken(): Promise<AuthResult> {
@@ -171,12 +178,12 @@ export async function refreshToken(): Promise<AuthResult> {
     `${AUTH_BASE}/refresh`,
     { method: 'POST', headers: getJsonAuthHeaders() }
   );
-  setApiToken(resp.accessToken);
+  setAccessToken(resp.accessToken);
   const payload = parseJwt(resp.accessToken) || {};
   const userId = resp.userId || payload.sub || payload.userId || '';
   const user = await getCurrentUser(userId);
   return {
-    token: resp.accessToken,
+    accessToken: resp.accessToken,
     user,
     roles: payload.roles || [],
     permissions: payload.permissions || [],
@@ -217,6 +224,6 @@ export async function logout(): Promise<void> {
       headers: getJsonAuthHeaders(),
     });
   } finally {
-    setApiToken(null);
+    setAccessToken(null);
   }
 }

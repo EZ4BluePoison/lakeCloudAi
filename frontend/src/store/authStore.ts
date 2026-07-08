@@ -37,18 +37,18 @@ export const useAuthStore = create<AuthState & AuthActions>()(
     (set, get) => ({
       ...initialState,
 
-      setToken: (token) => {
-        authService.setApiToken(token);
-        set({ token, isAuthenticated: !!token });
+      setToken: (accessToken) => {
+        authService.setAccessToken(accessToken);
+        set({ token: accessToken, isAuthenticated: !!accessToken });
       },
 
       login: async (username, password) => {
         set({ isLoading: true, error: null });
         try {
           const result = await authService.login({ username, password });
-          authService.setApiToken(result.token);
+          authService.setAccessToken(result.accessToken);
           set({
-            token: result.token,
+            token: result.accessToken,
             user: result.user,
             roles: result.roles,
             permissions: result.permissions,
@@ -76,7 +76,7 @@ export const useAuthStore = create<AuthState & AuthActions>()(
       },
 
       fetchCurrentUser: async () => {
-        const token = authService.getApiToken();
+        const token = authService.getAccessToken();
         if (!token) {
           set({ ...initialState });
           return;
@@ -89,7 +89,7 @@ export const useAuthStore = create<AuthState & AuthActions>()(
           }
           const user = await authService.getCurrentUser(payload.sub);
           set({
-            token,
+            token: token,
             user,
             roles: payload.roles || [],
             permissions: payload.permissions || [],
@@ -98,7 +98,7 @@ export const useAuthStore = create<AuthState & AuthActions>()(
             error: null,
           });
         } catch (err) {
-          authService.setApiToken(null);
+          authService.setAccessToken(null);
           set({
             ...initialState,
             isLoading: false,
@@ -126,7 +126,7 @@ export const useAuthStore = create<AuthState & AuthActions>()(
       }),
       onRehydrateStorage: () => (state) => {
         if (state?.token) {
-          authService.setApiToken(state.token);
+          authService.setAccessToken(state.token);
         }
       },
     }
