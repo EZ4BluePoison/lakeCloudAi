@@ -64,11 +64,12 @@ function getJsonAuthHeaders(): Record<string, string> {
   return { 'Content-Type': 'application/json', ...getAuthHeaders() };
 }
 
-export async function fetchJson<T>(input: string, init?: RequestInit): Promise<T> {
+async function fetchRawJson<T>(input: string, init: RequestInit | undefined, withAuth: boolean): Promise<T> {
+  const authHeaders = withAuth ? getAuthHeaders() : {};
   const res = await fetch(input, {
     ...init,
     headers: {
-      ...getAuthHeaders(),
+      ...authHeaders,
       ...(init?.headers || {}),
     },
   });
@@ -94,6 +95,16 @@ export async function fetchJson<T>(input: string, init?: RequestInit): Promise<T
     return wrapper.data as T;
   }
   return data as T;
+}
+
+/** 需要登录态的请求（会携带 accessToken） */
+export async function fetchJson<T>(input: string, init?: RequestInit): Promise<T> {
+  return fetchRawJson<T>(input, init, true);
+}
+
+/** 登录前的公开接口（不会携带 accessToken，避免旧 token 干扰登录/验证码） */
+export async function fetchPublicJson<T>(input: string, init?: RequestInit): Promise<T> {
+  return fetchRawJson<T>(input, init, false);
 }
 
 export function parseJwt(token: string): JwtPayload | null {
@@ -127,7 +138,7 @@ export interface CaptchaInfo {
 }
 
 export async function fetchCaptcha(): Promise<CaptchaInfo> {
-  const data = await fetchJson<{ expression: string; captchaKey: string }>(`${AUTH_BASE}/captcha/generate`);
+  const data = await fetchPublicJson<{ expression: string; captchaKey: string }>(`${AUTH_BASE}/captcha/generate`);
   return {
     captchaKey: data.captchaKey,
     expression: data.expression,
@@ -144,7 +155,7 @@ export async function login(credentials: LoginCredentials): Promise<AuthResult> 
   const captcha = await fetchCaptcha();
   const tenantId = import.meta.env.VITE_DEFAULT_TENANT_ID || '1';
 
-  const loginResp = await fetchJson<{
+  const loginResp = await fetchPublicJson<{
     accessToken: string;
     userId: string;
     tenantId: string;
