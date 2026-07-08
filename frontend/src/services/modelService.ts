@@ -10,6 +10,7 @@ import {
   createOllamaClient,
   type OllamaChatMessage
 } from './ollamaService';
+import { getAuthHeaders } from './authService';
 
 export class ModelService {
   config: LLMConfig;
@@ -36,7 +37,9 @@ export class ModelService {
       
       if (this.config.provider === 'wuxidata') {
         const baseUrl = this.getWuxidataBaseUrl();
-        const response = await fetch(`${baseUrl}/api/v1/chat/health`);
+        const response = await fetch(`${baseUrl}/api/v1/chat/health`, {
+          headers: getAuthHeaders(),
+        });
         return response.ok;
       }
       
@@ -242,7 +245,7 @@ export class ModelService {
 
     const response = await fetch(`${baseUrl}/api/v1/chat/completions`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json; charset=utf-8' },
+      headers: { 'Content-Type': 'application/json; charset=utf-8', ...getAuthHeaders() },
       body: JSON.stringify(this.buildWuxidataRequestBody(messages))
     });
 
@@ -279,7 +282,7 @@ export class ModelService {
 
     const response = await fetch(`${baseUrl}/api/v1/chat/completions/stream`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json; charset=utf-8' },
+      headers: { 'Content-Type': 'application/json; charset=utf-8', ...getAuthHeaders() },
       body: JSON.stringify(body)
     });
 

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { getAuthHeaders } from '@/services/authService';
 
 type STTState = 'idle' | 'recording' | 'loading' | 'transcribing' | 'error';
 
@@ -8,33 +9,6 @@ export interface UseWhisperSTTReturn {
   progress: number;
   start: () => Promise<void>;
   stop: () => void;
-}
-
-const TARGET_SAMPLE_RATE = 16000;
-
-async function decodeAudioBlob(blob: Blob): Promise<Float32Array> {
-  const arrayBuffer = await blob.arrayBuffer();
-  const ctx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
-  try {
-    const decoded = await ctx.decodeAudioData(arrayBuffer);
-    if (decoded.sampleRate === TARGET_SAMPLE_RATE && decoded.numberOfChannels === 1) {
-      return decoded.getChannelData(0);
-    }
-    // Resample to 16 kHz mono using OfflineAudioContext
-    const offline = new OfflineAudioContext(
-      1,
-      Math.ceil(decoded.duration * TARGET_SAMPLE_RATE),
-      TARGET_SAMPLE_RATE
-    );
-    const source = offline.createBufferSource();
-    source.buffer = decoded;
-    source.connect(offline.destination);
-    source.start();
-    const rendered = await offline.startRendering();
-    return rendered.getChannelData(0);
-  } finally {
-    void ctx.close();
-  }
 }
 
 export function useWhisperSTT(
@@ -47,30 +21,47 @@ export function useWhisperSTT(
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
-  const pipelineRef = useRef<unknown>(null);
   const abortCleanupRef = useRef(false);
 
-  const ensureModel = useCallback(async () => {
-    if (pipelineRef.current) return;
-    setProgress(0);
-    const { pipeline, env } = await import('@xenova/transformers');
-    // Only use remote CDN models; no local model folder is needed in the browser.
-    (env as Record<string, unknown>).allowLocalModels = false;
-    (env as Record<string, unknown>).allowRemoteModels = true;
+  const transcribeAudio = useCallback(async (audioBlob: Blob, mimeType: string) => {
+    setProgress(30);
 
-    pipelineRef.current = await pipeline(
-      'automatic-speech-recognition',
-      'Xenova/whisper-tiny',
-      {
-        quantized: true,
-        progress_callback: (p: { status?: string; loaded?: number; total?: number }) => {
-          if (p && typeof p.loaded === 'number' && typeof p.total === 'number' && p.total > 0) {
-            setProgress(Math.min(100, Math.round((p.loaded / p.total) * 100)));
-          }
-        },
-      }
-    );
-  }, []);
+    const extension = mimeType.includes('webm')
+      ? 'webm'
+      : mimeType.includes('mp4')
+        ? 'mp4'
+        : mimeType.includes('wav')
+          ? 'wav'
+          : 'webm';
+    const filename = `recording.${extension}`;
+
+    const formData = new FormData();
+    formData.append('file', audioBlob, filename);
+    formData.append('language', options?.language || 'zh');
+
+    setProgress(60);
+
+    const response = await fetch('/api/v1/audio/transcriptions', {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: formData,
+    });
+
+    setProgress(90);
+
+    if (!response.ok) {
+      const errorData = (await response.json().catch(() => ({}))) as { error?: string };
+      throw new Error(errorData.error || `语音转写失败 (${response.status})`);
+    }
+
+    const data = (await response.json()) as { text?: string; error?: string };
+    if (data.error) {
+      throw new Error(data.error);
+    }
+
+    setProgress(100);
+    return data.text || '';
+  }, [options?.language]);
 
   const start = useCallback(async () => {
     if (state === 'recording' || state === 'loading' || state === 'transcribing') return;
@@ -107,21 +98,10 @@ export function useWhisperSTT(
         setState('loading');
         try {
           const audioBlob = new Blob(audioChunksRef.current, { type: recorder.mimeType });
-          const audio = await decodeAudioBlob(audioBlob);
-          await ensureModel();
+          const text = await transcribeAudio(audioBlob, recorder.mimeType);
           if (abortCleanupRef.current) return;
 
           setState('transcribing');
-          const transcriber = pipelineRef.current as (audio: Float32Array, options?: Record<string, unknown>) => Promise<{ text?: string } | { text?: string }[]>;
-          const output = await transcriber(audio, {
-            task: 'transcribe',
-            language: options?.language || 'chinese',
-            chunk_length_s: 30,
-            stride_length_s: 5,
-          });
-          if (abortCleanupRef.current) return;
-
-          const text = Array.isArray(output) ? output[0]?.text : output?.text;
           if (text) {
             onResult(text.trim());
           }
@@ -147,7 +127,7 @@ export function useWhisperSTT(
       setError(message);
       setState('error');
     }
-  }, [state, ensureModel, onResult, options?.language]);
+  }, [state, transcribeAudio, onResult]);
 
   const stop = useCallback(() => {
     const recorder = mediaRecorderRef.current;
