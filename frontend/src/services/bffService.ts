@@ -38,7 +38,8 @@ function getConsoleAuthHeaders(): Record<string, string> {
   const headers: Record<string, string> = {};
   const token = getConsoleToken();
   if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
+    // 平台 Console 接口直接传 JWT，不带 Bearer 前缀
+    headers['Authorization'] = token;
   }
   return headers;
 }

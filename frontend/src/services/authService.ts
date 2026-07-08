@@ -54,7 +54,8 @@ export function getAuthHeaders(): Record<string, string> {
   const headers: Record<string, string> = {};
   const accessToken = getAccessToken();
   if (accessToken) {
-    headers.Authorization = `Bearer ${accessToken}`;
+    // 平台接口要求直接传 accessToken，不带 Bearer 前缀
+    headers.Authorization = accessToken;
   }
   return headers;
 }
