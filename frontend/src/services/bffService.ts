@@ -699,7 +699,7 @@ async function unwrap<T>(res: Response): Promise<T> {
 
 class BffKnowledgeService {
   async listDatasets(): Promise<BffDataset[]> {
-    const res = await fetch(`${API_BASE_URL}/api/console/knowledge/datasets?limit=1000`, {
+    const res = await fetch(`${API_BASE_URL}/api/console/knowledge/datasets?limit=100`, {
       headers: getConsoleAuthHeaders(),
     });
     const data = await unwrap<unknown[]>(res);
@@ -741,7 +741,7 @@ class BffKnowledgeService {
   }
 
   async listDocuments(datasetId: string): Promise<BffDocument[]> {
-    const res = await fetch(`${API_BASE_URL}/api/console/knowledge/datasets/${datasetId}/documents?limit=1000`, {
+    const res = await fetch(`${API_BASE_URL}/api/console/knowledge/datasets/${datasetId}/documents?limit=100`, {
       headers: getConsoleAuthHeaders(),
     });
     const data = await unwrap<unknown[]>(res);

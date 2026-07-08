@@ -78,7 +78,7 @@ export default function Sidebar({ activeModule, activeKnowledgeSub, onModuleChan
   }, [kbExpanded, loadDatasets, refreshToken]);
 
   useEffect(() => {
-    bffService.application.listApplications({ limit: 1 })
+    bffService.application.listApplications({ limit: 100 })
       .then(result => setPlazaCount(result.total))
       .catch(() => setPlazaCount(0));
   }, []);
