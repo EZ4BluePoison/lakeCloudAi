@@ -6,29 +6,46 @@
  */
 
 const API_BASE_URL = '/knowledge-api';
-const BFF_TOKEN_KEY = 'lakecloud-dify-token';
 
-/**
- * 获取后端 Console API 所需的 Bearer Token。
- * 优先级：VITE_API_TOKEN（环境变量） > localStorage.getItem('lakecloud-api-token')
- */
-function getApiToken(): string | undefined {
+const CONSOLE_TOKEN_KEY = 'lakecloud-access-token';
+const DIFY_TOKEN_KEY = 'lakecloud-dify-token';
+
+/** 获取平台 Console 接口（/api/console）使用的 JWT */
+function getConsoleToken(): string | undefined {
   try {
-    const envToken = import.meta.env.VITE_API_TOKEN;
+    return localStorage.getItem(CONSOLE_TOKEN_KEY) || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** 获取 Dify 原生调试接口（/debug/dify）使用的 API Key */
+function getDifyToken(): string | undefined {
+  try {
+    const envToken = import.meta.env.VITE_DIFY_API_TOKEN || import.meta.env.VITE_API_TOKEN;
     if (typeof envToken === 'string' && envToken && !envToken.startsWith('YOUR_')) {
       return envToken;
     }
-    const storageToken = localStorage.getItem(BFF_TOKEN_KEY);
+    const storageToken = localStorage.getItem(DIFY_TOKEN_KEY);
     if (storageToken) return storageToken;
   } catch {
-    // ignore (e.g. SSR or localStorage disabled)
+    // ignore
   }
   return undefined;
 }
 
-function getAuthHeaders(): Record<string, string> {
+function getConsoleAuthHeaders(): Record<string, string> {
   const headers: Record<string, string> = {};
-  const token = getApiToken();
+  const token = getConsoleToken();
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  return headers;
+}
+
+function getDifyAuthHeaders(): Record<string, string> {
+  const headers: Record<string, string> = {};
+  const token = getDifyToken();
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
   }
@@ -36,7 +53,7 @@ function getAuthHeaders(): Record<string, string> {
 }
 
 function getJsonAuthHeaders(): Record<string, string> {
-  return { 'Content-Type': 'application/json', ...getAuthHeaders() };
+  return { 'Content-Type': 'application/json', ...getConsoleAuthHeaders() };
 }
 
 /** 判断 agentId 是否为后端真实的应用 ID（非 hardcoded 前缀） */
@@ -515,7 +532,7 @@ class BffApplicationService {
     query.set('page', String(params.page));
     query.set('limit', String(params.limit));
     if (params.keyword) query.set('keyword', params.keyword);
-    const fetchOptions: RequestInit = { headers: getAuthHeaders() };
+    const fetchOptions: RequestInit = { headers: getConsoleAuthHeaders() };
     if (params.signal) fetchOptions.signal = params.signal;
     const res = await fetch(`${API_BASE_URL}/api/console/applications?${query.toString()}`, fetchOptions);
     if (!res.ok) throw new Error(`listApplications failed: ${res.status}`);
@@ -602,7 +619,7 @@ class BffApplicationService {
 
   async getApplication(appId: string): Promise<BffApplication | null> {
     const res = await fetch(`${API_BASE_URL}/api/console/applications/apps/${appId}`, {
-      headers: getAuthHeaders(),
+      headers: getConsoleAuthHeaders(),
     });
     if (!res.ok) throw new Error(`getApplication failed: ${res.status}`);
     const json = (await res.json()) as unknown;
@@ -612,7 +629,7 @@ class BffApplicationService {
   async deleteApplication(appId: string): Promise<void> {
     const res = await fetch(`${API_BASE_URL}/api/console/applications/apps/${appId}`, {
       method: 'DELETE',
-      headers: getAuthHeaders(),
+      headers: getConsoleAuthHeaders(),
     });
     if (!res.ok) throw new Error(`deleteApplication failed: ${res.status}`);
   }
@@ -683,7 +700,7 @@ async function unwrap<T>(res: Response): Promise<T> {
 class BffKnowledgeService {
   async listDatasets(): Promise<BffDataset[]> {
     const res = await fetch(`${API_BASE_URL}/api/console/knowledge/datasets?limit=1000`, {
-      headers: getAuthHeaders(),
+      headers: getConsoleAuthHeaders(),
     });
     const data = await unwrap<unknown[]>(res);
     return (data || []).map(item => toBffDataset(item));
@@ -710,7 +727,7 @@ class BffKnowledgeService {
   async deleteDataset(datasetId: string): Promise<void> {
     const res = await fetch(`${API_BASE_URL}/api/console/knowledge/datasets/${datasetId}`, {
       method: 'DELETE',
-      headers: getAuthHeaders(),
+      headers: getConsoleAuthHeaders(),
     });
     if (!res.ok) throw new Error(`deleteDataset failed: ${res.status}`);
   }
@@ -718,14 +735,14 @@ class BffKnowledgeService {
   async deleteDocument(datasetId: string, documentId: string): Promise<void> {
     const res = await fetch(`${API_BASE_URL}/api/console/knowledge/datasets/${datasetId}/documents/${documentId}`, {
       method: 'DELETE',
-      headers: getAuthHeaders(),
+      headers: getConsoleAuthHeaders(),
     });
     if (!res.ok) throw new Error(`deleteDocument failed: ${res.status}`);
   }
 
   async listDocuments(datasetId: string): Promise<BffDocument[]> {
     const res = await fetch(`${API_BASE_URL}/api/console/knowledge/datasets/${datasetId}/documents?limit=1000`, {
-      headers: getAuthHeaders(),
+      headers: getConsoleAuthHeaders(),
     });
     const data = await unwrap<unknown[]>(res);
     return (data || []).map(item => toBffDocument(item));
@@ -744,7 +761,7 @@ class BffKnowledgeService {
     }
     const res = await fetch(`${API_BASE_URL}/api/console/knowledge/datasets/${params.datasetId}/documents/file`, {
       method: 'POST',
-      headers: getAuthHeaders(),
+      headers: getConsoleAuthHeaders(),
       body: formData,
     });
     const json = await unwrap<{ documents?: unknown[] }>(res);
@@ -758,7 +775,7 @@ class BffKnowledgeService {
 
   async downloadDocument(datasetId: string, documentId: string): Promise<Blob> {
     const res = await fetch(`${API_BASE_URL}/api/console/knowledge/datasets/${datasetId}/documents/${documentId}/download`, {
-      headers: getAuthHeaders(),
+      headers: getConsoleAuthHeaders(),
     });
     if (!res.ok) throw new Error(`downloadDocument failed: ${res.status}`);
     const contentType = res.headers.get('content-type') || '';
@@ -778,7 +795,7 @@ class BffKnowledgeService {
     try {
       const res = await fetch(`${API_BASE_URL}/debug/dify/datasets/${datasetId}/retrieve`, {
         method: 'POST',
-        headers: getJsonAuthHeaders(),
+        headers: { 'Content-Type': 'application/json', ...getDifyAuthHeaders() },
         body: JSON.stringify({
           query,
           retrieval_mode: 'hybrid',
@@ -840,7 +857,7 @@ class BffModelService {
   async listModelConfigs(): Promise<BffModelConfig[]> {
     try {
       const res = await fetch(`${API_BASE_URL}/api/console/models`, {
-        headers: getAuthHeaders(),
+        headers: getConsoleAuthHeaders(),
       });
       if (!res.ok) throw new Error(`listModelConfigs failed: ${res.status}`);
       const json = (await res.json()) as unknown;
@@ -884,7 +901,7 @@ class BffModelService {
   async listModelsByType(modelType: string): Promise<BffModelTypeItem[]> {
     try {
       const res = await fetch(`${API_BASE_URL}/api/console/applications/models/model-types/${encodeURIComponent(modelType)}`, {
-        headers: getAuthHeaders(),
+        headers: getConsoleAuthHeaders(),
       });
       if (!res.ok) throw new Error(`listModelsByType failed: ${res.status}`);
       const json = (await res.json()) as unknown;
