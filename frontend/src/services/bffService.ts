@@ -6,6 +6,7 @@
  */
 
 const API_BASE_URL = '/knowledge-api';
+const BFF_TOKEN_KEY = 'lakecloud-dify-token';
 
 /**
  * 获取后端 Console API 所需的 Bearer Token。
@@ -17,7 +18,7 @@ function getApiToken(): string | undefined {
     if (typeof envToken === 'string' && envToken && !envToken.startsWith('YOUR_')) {
       return envToken;
     }
-    const storageToken = localStorage.getItem('lakecloud-api-token');
+    const storageToken = localStorage.getItem(BFF_TOKEN_KEY);
     if (storageToken) return storageToken;
   } catch {
     // ignore (e.g. SSR or localStorage disabled)

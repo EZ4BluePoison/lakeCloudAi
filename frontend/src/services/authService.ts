@@ -2,7 +2,7 @@ import type { User } from '@/types';
 
 const AUTH_BASE = '/api/auth';
 const ADMIN_BASE = '/api/admin';
-const TOKEN_KEY = 'lakecloud-api-token';
+const TOKEN_KEY = 'lakecloud-access-token';
 
 export interface AuthResult {
   token: string;

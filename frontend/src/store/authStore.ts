@@ -124,6 +124,11 @@ export const useAuthStore = create<AuthState & AuthActions>()(
         permissions: state.permissions,
         isAuthenticated: state.isAuthenticated,
       }),
+      onRehydrateStorage: () => (state) => {
+        if (state?.token) {
+          authService.setApiToken(state.token);
+        }
+      },
     }
   )
 );
