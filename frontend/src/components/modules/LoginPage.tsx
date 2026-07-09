@@ -18,6 +18,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [captcha, setCaptcha] = useState<CaptchaInfo | null>(null);
+  const [captchaCode, setCaptchaCode] = useState('');
 
   const loadCaptcha = useCallback(async () => {
     try {
@@ -29,27 +30,26 @@ export default function LoginPage() {
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 初始化验证码
     void loadCaptcha();
   }, [loadCaptcha]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!username.trim() || !password.trim()) return;
+    if (!username.trim() || !password.trim() || !captchaCode.trim() || !captcha) return;
     try {
-      await login(username.trim(), password.trim());
+      await login(username.trim(), password.trim(), captchaCode.trim(), captcha.captchaKey);
     } catch {
+      setCaptchaCode('');
       void loadCaptcha();
     }
   };
 
-  const handleDevLogin = async (account: { username: string; password?: string }) => {
+  const handleDevLogin = (account: { username: string; password?: string }) => {
     setUsername(account.username);
     setPassword(account.password || 'thy@123456');
-    try {
-      await login(account.username, account.password || 'thy@123456');
-    } catch {
-      void loadCaptcha();
-    }
+    setCaptchaCode('');
+    void loadCaptcha();
   };
 
   return (
@@ -93,13 +93,19 @@ export default function LoginPage() {
           </div>
 
           <div className="flex items-center gap-3">
-            <Input
-              placeholder="验证码结果"
-              value={captcha ? `${captcha.expression} = ?` : ''}
-              readOnly
-              disabled
-              className="h-11 rounded-xl bg-[#F2F3F5] border-transparent text-[14px] text-[#1F2329] flex-1"
-            />
+            {captcha?.captchaImage ? (
+              <img
+                src={captcha.captchaImage}
+                alt="验证码"
+                className="h-11 rounded-xl border border-[#DEE0E3] bg-white object-contain cursor-pointer flex-1"
+                onClick={() => void loadCaptcha()}
+                title="点击刷新"
+              />
+            ) : (
+              <div className="h-11 rounded-xl bg-[#F2F3F5] flex-1 flex items-center justify-center text-[#8F959E] text-[13px]">
+                验证码加载中
+              </div>
+            )}
             <button
               type="button"
               onClick={() => void loadCaptcha()}
@@ -111,13 +117,24 @@ export default function LoginPage() {
             </button>
           </div>
 
+          <div>
+            <Input
+              placeholder="请输入验证码"
+              value={captchaCode}
+              onChange={(e) => setCaptchaCode(e.target.value)}
+              disabled={isLoading}
+              maxLength={10}
+              className="h-11 rounded-xl bg-[#F2F3F5] border-transparent focus:border-[#3370FF] text-[14px] placeholder:text-[#BBBFC4]"
+            />
+          </div>
+
           {error && (
             <div className="p-3 rounded-lg bg-[#FFF2F0] text-[#F54A45] text-[13px]">{error}</div>
           )}
 
           <Button
             type="submit"
-            disabled={isLoading || !captcha}
+            disabled={isLoading || !captcha || !captchaCode.trim()}
             className="w-full h-11 rounded-xl bg-[#3370FF] hover:bg-[#245BDB] text-white text-[15px] font-medium disabled:opacity-60"
           >
             {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : '登录'}

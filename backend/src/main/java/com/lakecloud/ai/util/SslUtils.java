@@ -22,12 +22,26 @@ public final class SslUtils {
      */
     public static CloseableHttpClient createHttpClient(boolean trustAll) {
         if (trustAll) {
-            return createTrustAllHttpClient();
+            return HttpClients.custom()
+                    .setSSLSocketFactory(createTrustAllSocketFactory())
+                    .build();
         }
         return HttpClients.custom().build();
     }
 
-    private static CloseableHttpClient createTrustAllHttpClient() {
+    /**
+     * 创建 SSL SocketFactory。
+     * 当 trustAll 为 true 时信任所有证书并跳过主机名校验；
+     * 生产环境必须传入 false，使用 JVM 默认信任库进行正常的 TLS 校验。
+     */
+    public static SSLConnectionSocketFactory createSslSocketFactory(boolean trustAll) {
+        if (trustAll) {
+            return createTrustAllSocketFactory();
+        }
+        return SSLConnectionSocketFactory.getSocketFactory();
+    }
+
+    private static SSLConnectionSocketFactory createTrustAllSocketFactory() {
         try {
             X509TrustManager trustManager = new X509TrustManager() {
                 @Override
@@ -48,16 +62,12 @@ public final class SslUtils {
             SSLContext sslContext = SSLContext.getInstance("TLS");
             sslContext.init(null, trustManagers, new java.security.SecureRandom());
 
-            SSLConnectionSocketFactory socketFactory = new SSLConnectionSocketFactory(
+            return new SSLConnectionSocketFactory(
                     sslContext,
                     NoopHostnameVerifier.INSTANCE
             );
-
-            return HttpClients.custom()
-                    .setSSLSocketFactory(socketFactory)
-                    .build();
         } catch (Exception e) {
-            throw new IllegalStateException("创建信任所有证书的 HttpClient 失败", e);
+            throw new IllegalStateException("创建信任所有证书的 SocketFactory 失败", e);
         }
     }
 }

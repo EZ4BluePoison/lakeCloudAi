@@ -19,7 +19,7 @@ export function VoiceInputButton({
   title = '语音输入',
 }: VoiceInputButtonProps) {
   const { state, error, progress, start, stop } = useWhisperSTT(onResult, {
-    language: 'chinese',
+    language: 'zh',
   });
 
   useEffect(() => {

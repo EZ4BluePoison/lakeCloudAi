@@ -54,8 +54,8 @@ export function getAuthHeaders(): Record<string, string> {
   const headers: Record<string, string> = {};
   const accessToken = getAccessToken();
   if (accessToken) {
-    // 后端 AuthenticationFilter 从 Authorization: Bearer <token> 解析
-    headers.Authorization = `Bearer ${accessToken}`;
+    // 远程后端要求直接传 token，不带 Bearer 前缀
+    headers.Authorization = accessToken;
   }
   return headers;
 }
@@ -88,9 +88,10 @@ async function fetchRawJson<T>(input: string, init: RequestInit | undefined, wit
     throw new Error(errMsg || '请求失败');
   }
   if (typeof data === 'object' && data !== null && 'code' in data) {
-    const wrapper = data as { code: string; message?: string; data?: T };
-    if (wrapper.code !== '0' && wrapper.code !== '200') {
-      throw new Error(wrapper.message || `业务错误 ${wrapper.code}`);
+    const wrapper = data as { code: string | number; message?: string; data?: T };
+    const code = String(wrapper.code);
+    if (code !== '0' && code !== '200') {
+      throw new Error(wrapper.message || `业务错误 ${code}`);
     }
     return wrapper.data as T;
   }
@@ -119,41 +120,28 @@ export function parseJwt(token: string): JwtPayload | null {
   }
 }
 
-export function evalExpression(expr: string): string {
-  // 后端仅返回 + - * / 整数表达式
-  const sanitized = expr.replace(/[^0-9+\-*/().\s]/g, '');
-  if (!sanitized) return '';
-  try {
-    // eslint-disable-next-line no-new-func
-    return String(new Function('return (' + sanitized + ')')());
-  } catch {
-    return '';
-  }
-}
-
 export interface CaptchaInfo {
   captchaKey: string;
-  expression: string;
-  answer: string;
+  captchaImage: string;
 }
 
 export async function fetchCaptcha(): Promise<CaptchaInfo> {
-  const data = await fetchPublicJson<{ expression: string; captchaKey: string }>(`${AUTH_BASE}/captcha/generate`);
+  const data = await fetchPublicJson<{ captchaImage: string; captchaKey: string }>(`${AUTH_BASE}/captcha/generate`);
   return {
     captchaKey: data.captchaKey,
-    expression: data.expression,
-    answer: evalExpression(data.expression),
+    captchaImage: data.captchaImage,
   };
 }
 
 export interface LoginCredentials {
   username: string;
   password: string;
+  captchaCode: string;
+  captchaKey: string;
 }
 
 export async function login(credentials: LoginCredentials): Promise<AuthResult> {
-  const captcha = await fetchCaptcha();
-  const tenantId = import.meta.env.VITE_DEFAULT_TENANT_ID || '1';
+  const tenantId = import.meta.env.VITE_DEFAULT_TENANT_ID || 'system';
 
   const loginResp = await fetchPublicJson<{
     accessToken: string;
@@ -167,8 +155,8 @@ export async function login(credentials: LoginCredentials): Promise<AuthResult> 
       tenantId,
       username: credentials.username,
       password: credentials.password,
-      captchaKey: captcha.captchaKey,
-      captchaCode: captcha.answer,
+      captchaKey: credentials.captchaKey,
+      captchaCode: credentials.captchaCode,
     }),
   });
 

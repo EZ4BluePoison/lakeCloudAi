@@ -11,7 +11,7 @@ import {
 import type { ChatPanelMessage as ChatMessage, ConversationMessage, MyAgent, Agent, PlazaAgent } from '@/types';
 import { bffService } from '@/services/bffService';
 import { mapApplicationToPlazaAgent } from '@/services/agentService';
-import { sendMessage as chatServiceSendMessage, type ChatResponse } from '@/services/chatService';
+import { sendMessageStream } from '@/services/chatService';
 import { useConversationStore } from '@/store/conversationStore';
 import { Plus, Trash2, History, X } from 'lucide-react';
 import { VoiceInputButton } from '@/components/ui/VoiceInputButton';
@@ -388,6 +388,7 @@ export function MessagesRightPanel({
     sessions,
     currentSessionId,
     addMessage: addStoreMessage,
+    updateMessage: updateStoreMessage,
     createSession,
     selectSession,
     deleteSession,
@@ -440,19 +441,26 @@ export function MessagesRightPanel({
     scrollToBottom();
   }, [messages, isTyping, scrollToBottom]);
 
+  const escapeHtml = (unsafe: string): string => {
+    return unsafe
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+  };
+
   const extractAndCleanContent = (content: string): { cleanContent: string; options: string[] } => {
     let cleanContent = content;
     const options: string[] = [];
-    
+
     cleanContent = cleanContent.replace(/【来源：.*】/g, '');
-    
-    cleanContent = cleanContent.replace(/###\s+.*/g, '');
-    cleanContent = cleanContent.replace(/##\s+.*/g, '');
-    
+
+    // 将 Markdown 标题语法转换为加粗标记
+    cleanContent = cleanContent.replace(/^(#{1,6})\s+(.+)$/gm, '**$2**');
+
     cleanContent = cleanContent.replace(/\*\*\*+/g, '');
-    
+
     cleanContent = cleanContent.replace(/^\d+\.\s*/gm, '');
-    
+
     const followUpPattern = /^[一二三]、(.+?)(？|。|$)/gm;
     let match;
     while ((match = followUpPattern.exec(content)) !== null) {
@@ -461,18 +469,20 @@ export function MessagesRightPanel({
         options.push(option);
       }
     }
-    
+
     cleanContent = cleanContent.replace(/^[一二三]、\s*/gm, '');
-    
+
     cleanContent = cleanContent.replace(/\s*\n\s*/g, '\n');
     cleanContent = cleanContent.trim();
-    
+
     return { cleanContent, options };
   };
 
   const formatMessageContent = (content: string): string => {
     const { cleanContent } = extractAndCleanContent(content);
-    return cleanContent.replace(/\n/g, '<br/>');
+    return escapeHtml(cleanContent)
+      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\n/g, '<br/>');
   };
 
   const followUpThemes: Record<string, string[]> = {
@@ -593,37 +603,49 @@ export function MessagesRightPanel({
 
   const handleSend = async () => {
     const text = inputValue.trim();
-    if (!text || !currentSession) return;
+    if (!text || !currentSession || isTyping) return;
 
     addStoreMessage(currentSession.id, 'user', text);
     setInputValue('');
     setIsTyping(true);
 
+    const assistantMessageId = addStoreMessage(currentSession.id, 'assistant', '');
+
     try {
-      const response: ChatResponse = await chatServiceSendMessage(
+      let streamedContent = '';
+      let finalConversationId: string | undefined;
+
+      for await (const chunk of sendMessageStream(
         agentId,
         agent.name,
         agent.description,
         text,
         conversationId
-      );
-
-      // BFF 返回的会话 ID 用于维持多轮对话
-      if (response.conversationId) {
-        setConversationId(response.conversationId);
+      )) {
+        if (chunk.done) {
+          finalConversationId = chunk.conversationId;
+          break;
+        }
+        streamedContent += chunk.content;
+        updateStoreMessage(currentSession.id, assistantMessageId, { content: streamedContent });
       }
 
-      const followUpOptions = response.followUpOptions?.length
-        ? response.followUpOptions.slice(0, 3)
-        : generateFollowUpOptions(text, response.content);
+      // BFF 返回的会话 ID 用于维持多轮对话
+      if (finalConversationId) {
+        setConversationId(finalConversationId);
+      }
 
-      addStoreMessage(currentSession.id, 'assistant', response.content, { followUpOptions });
+      const followUpOptions = generateFollowUpOptions(text, streamedContent);
+      updateStoreMessage(currentSession.id, assistantMessageId, {
+        content: streamedContent,
+        metadata: { followUpOptions },
+      });
     } catch (error) {
       console.error('Chat API error:', error);
-      addStoreMessage(
+      updateStoreMessage(
         currentSession.id,
-        'assistant',
-        `抱歉，我暂时无法回答您的问题。错误信息：${error instanceof Error ? error.message : '未知错误'}`
+        assistantMessageId,
+        { content: `抱歉，我暂时无法回答您的问题。错误信息：${error instanceof Error ? error.message : '未知错误'}` }
       );
     } finally {
       setIsTyping(false);
@@ -633,6 +655,7 @@ export function MessagesRightPanel({
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
+      if (isTyping) return;
       handleSend();
     }
   };
@@ -703,7 +726,7 @@ export function MessagesRightPanel({
       {/* Chat Messages */}
       <div className="flex-1 overflow-y-auto min-h-0 px-5 py-5">
         <div className="flex flex-col gap-4 max-w-[800px] mx-auto">
-          {messages.map((msg) => (
+          {messages.filter(msg => msg.content.trim() || msg.role === 'user').map((msg) => (
             <div key={msg.id} className={`flex gap-3 fade-in-up ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
               <div
                 className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
@@ -790,9 +813,9 @@ export function MessagesRightPanel({
               />
               <button
                 onClick={handleSend}
-                disabled={!inputValue.trim()}
+                disabled={!inputValue.trim() || isTyping}
                 className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-200 ${
-                  inputValue.trim() ? 'bg-[#3370FF] text-white hover:bg-[#245BDB]' : 'bg-[#EBEBEB] text-[#BBBFC4] cursor-not-allowed'
+                  inputValue.trim() && !isTyping ? 'bg-[#3370FF] text-white hover:bg-[#245BDB]' : 'bg-[#EBEBEB] text-[#BBBFC4] cursor-not-allowed'
                 }`}
               >
                 <Send className="w-4 h-4" />

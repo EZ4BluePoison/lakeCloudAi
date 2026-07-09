@@ -1,8 +1,10 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import {
   Folder, FileText, ChevronRight, ChevronDown, Trash2, BookOpen, Upload, X,
-  Pencil, Search, MoreHorizontal, Beaker, Download
+  Pencil, Search, MoreHorizontal, Download
 } from 'lucide-react';
+import * as XLSX from 'xlsx';
+import * as jschardet from 'jschardet';
 import type { FileNode } from '@/types';
 import { bffService, type BffDataset, type BffDocument } from '@/services/bffService';
 import {
@@ -14,6 +16,183 @@ function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function getFileExtension(name: string): string {
+  const i = name.lastIndexOf('.');
+  return i >= 0 ? name.slice(i + 1).toLowerCase() : '';
+}
+
+function bytesToBinaryString(bytes: Uint8Array): string {
+  const len = bytes.length;
+  const chunk = 32768;
+  let s = '';
+  for (let i = 0; i < len; i += chunk) {
+    s += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, Math.min(i + chunk, len))));
+  }
+  return s;
+}
+
+function normalizeEncodingName(encoding: string): string {
+  const map: Record<string, string> = {
+    'ascii': 'utf-8',
+    'utf-8': 'utf-8',
+    'utf8': 'utf-8',
+    'gbk': 'gbk',
+    'gb2312': 'gbk',
+    'gb18030': 'gb18030',
+    'big5': 'big5',
+    'shift_jis': 'shift_jis',
+    'shift-jis': 'shift_jis',
+    'euc-jp': 'euc-jp',
+    'euc-kr': 'euc-kr',
+    'iso-8859-1': 'iso-8859-1',
+    'windows-1252': 'windows-1252',
+    'windows-1251': 'windows-1251',
+  };
+  return map[encoding.toLowerCase()] || encoding;
+}
+
+function decodeTextBuffer(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  // UTF-8 BOM
+  if (bytes.length >= 3 && bytes[0] === 0xEF && bytes[1] === 0xBB && bytes[2] === 0xBF) {
+    return new TextDecoder('utf-8').decode(bytes.slice(3));
+  }
+  const detected = jschardet.detect(bytesToBinaryString(bytes));
+  const encoding = detected && detected.confidence > 0.5 ? normalizeEncodingName(detected.encoding) : 'utf-8';
+  try {
+    return new TextDecoder(encoding, { fatal: false }).decode(bytes);
+  } catch {
+    return new TextDecoder('utf-8', { fatal: false }).decode(bytes);
+  }
+}
+
+function csvToMarkdown(text: string): string {
+  const lines = text.split(/\r?\n/).filter(l => l.trim() !== '');
+  if (lines.length === 0) return '# 空文件\n\n该文件没有内容。';
+  const parseLine = (line: string): string[] => {
+    const cells: string[] = [];
+    let cell = '';
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      const next = line[i + 1];
+      if (inQuotes) {
+        if (ch === '"') {
+          if (next === '"') { cell += '"'; i++; }
+          else { inQuotes = false; }
+        } else {
+          cell += ch;
+        }
+      } else {
+        if (ch === '"') { inQuotes = true; }
+        else if (ch === ',') { cells.push(cell.trim()); cell = ''; }
+        else { cell += ch; }
+      }
+    }
+    cells.push(cell.trim());
+    return cells;
+  };
+  const rows = lines.map(parseLine);
+  const maxCols = Math.max(...rows.map(r => r.length));
+  const pad = (r: string[]) => [...r, ...Array.from({ length: maxCols - r.length }, () => '')];
+  const padded = rows.map(pad);
+  const md = [padded[0].join(' | ')];
+  md.push(padded[0].map(() => '---').join(' | '));
+  for (const row of padded.slice(1)) {
+    md.push(row.map(c => c || ' ').join(' | '));
+  }
+  return md.join('\n');
+}
+
+function parseXlsxToMarkdown(buffer: ArrayBuffer): string {
+  let workbook: XLSX.WorkBook;
+  try {
+    workbook = XLSX.read(new Uint8Array(buffer), { type: 'array', cellFormula: false });
+  } catch {
+    return '# 无法解析 Excel 文件\n\n请尝试下载后使用本地软件打开。';
+  }
+  if (!workbook.SheetNames.length) {
+    return '# 空表格\n\n该 Excel 文件没有工作表。';
+  }
+  const parts: string[] = [];
+  for (const sheetName of workbook.SheetNames) {
+    const ws = workbook.Sheets[sheetName];
+    const rows = XLSX.utils.sheet_to_json<unknown[]>(ws, { header: 1, defval: '' });
+    if (rows.length === 0) continue;
+    const maxCols = Math.max(...rows.map(r => (r as unknown[]).length));
+    const pad = (r: unknown[]) => [...r, ...Array.from({ length: maxCols - r.length }, () => '')];
+    const padded = rows.map(pad);
+    if (workbook.SheetNames.length > 1) {
+      parts.push(`## ${sheetName}`);
+    }
+    const head = padded[0].map(c => String(c ?? '').trim() || ' ');
+    parts.push(head.join(' | '));
+    parts.push(head.map(() => '---').join(' | '));
+    for (const row of padded.slice(1)) {
+      parts.push(row.map(c => String(c ?? '').trim() || ' ').join(' | '));
+    }
+  }
+  return parts.length ? parts.join('\n') : '# 空表格\n\n该 Excel 文件没有可预览内容。';
+}
+
+async function parseDocxToText(buffer: ArrayBuffer): Promise<string> {
+  try {
+    const mammoth = await import('mammoth');
+    const result = await mammoth.extractRawText({ arrayBuffer: buffer });
+    return result.value.trim() || '# 空文件\n\n该 Word 文档没有可提取文本。';
+  } catch {
+    return '# 无法解析 Word 文档\n\n请尝试下载后使用本地软件打开。';
+  }
+}
+
+async function parsePdfToText(buffer: ArrayBuffer): Promise<string> {
+  try {
+    const pdfjsLib = await import('pdfjs-dist');
+    const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(buffer) }).promise;
+    const pages: string[] = [];
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const content = await page.getTextContent();
+      const items = content.items as { str?: string }[];
+      const text = items.map(item => item.str || '').join(' ').trim();
+      if (text) pages.push(`--- 第 ${i} 页 ---\n${text}`);
+    }
+    return pages.length ? pages.join('\n\n') : '# 空文件\n\n该 PDF 没有可提取文本。';
+  } catch {
+    return '# 无法解析 PDF 文件\n\n请尝试下载后使用本地软件打开。';
+  }
+}
+
+function looksBinary(name: string): boolean {
+  const binaryExts = new Set(['doc', 'ppt', 'pptx', 'zip', 'rar', '7z', 'tar', 'gz', 'exe', 'dmg', 'jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'mp3', 'mp4', 'avi', 'mov']);
+  return binaryExts.has(getFileExtension(name));
+}
+
+async function blobToPreviewContent(blob: Blob, name: string): Promise<string> {
+  const ext = getFileExtension(name);
+  const buffer = await blob.arrayBuffer();
+  if (ext === 'xlsx' || ext === 'xls') {
+    return parseXlsxToMarkdown(buffer);
+  }
+  if (ext === 'docx') {
+    return parseDocxToText(buffer);
+  }
+  if (ext === 'pdf') {
+    return parsePdfToText(buffer);
+  }
+  if (ext === 'csv') {
+    const text = decodeTextBuffer(buffer);
+    return csvToMarkdown(text);
+  }
+  const textExts = new Set(['txt', 'md', 'markdown', 'json', 'js', 'ts', 'jsx', 'tsx', 'css', 'html', 'htm', 'xml', 'yaml', 'yml', 'log', 'conf', 'ini', 'sh', 'py', 'java', 'go', 'sql']);
+  if (textExts.has(ext) || !looksBinary(name)) {
+    const text = decodeTextBuffer(buffer);
+    if (!text || text.trim().length === 0) return '# 空文件\n\n该文件没有内容。';
+    return text;
+  }
+  return `# 暂不支持在线预览\n\n文件 **${name}** 为二进制格式，请下载后使用本地软件打开。`;
 }
 
 function toFileNode(doc: BffDocument): FileNode {
@@ -231,7 +410,13 @@ function FilePreview({ file, datasetName, content }: { file: FileNode; datasetNa
       const t = line.trim();
       if (t.startsWith('```')) { if (inCodeBlock) { flushCode(); inCodeBlock = false; } else inCodeBlock = true; return; }
       if (inCodeBlock) { codeContent += line + '\n'; return; }
-      if (t.includes('|')) { const cells = t.split('|').filter(c => c.trim()).map(c => c.trim()); if (cells.length > 0 && !cells.every(c => /^-+$/.test(c))) tableRows.push(cells); inTable = true; return; }
+      if (t.includes('|')) {
+        const raw = line.split('|');
+        const cells = raw.slice(raw[0].trim() === '' ? 1 : 0, raw[raw.length - 1].trim() === '' ? -1 : undefined).map(c => c.trim());
+        if (cells.length > 0 && !cells.every(c => /^-+$/.test(c))) tableRows.push(cells);
+        inTable = true;
+        return;
+      }
       else if (inTable) { flushTable(); inTable = false; }
       if (t.startsWith('# ')) elements.push(<h1 key={i} className="text-[22px] font-semibold text-[#1F2329] mt-6 mb-3">{t.slice(2)}</h1>);
       else if (t.startsWith('## ')) elements.push(<h2 key={i} className="text-[18px] font-semibold text-[#1F2329] mt-5 mb-2">{t.slice(3)}</h2>);
@@ -423,7 +608,7 @@ export function KnowledgeBaseMiddlePanel({ deptPath, selectedNodeId, onSelectNod
   }
 
   return (
-    <div className="flex flex-col h-full bg-[#F5F6F7]">
+    <div className="flex flex-col flex-1 min-h-0 bg-[#F5F6F7]">
       {/* Header */}
       <div className="bg-[#F5F6F7] flex-shrink-0">
         <div className="flex items-center justify-between px-3 pt-3 pb-2 pr-12">
@@ -510,8 +695,8 @@ export function KnowledgeBaseMiddlePanel({ deptPath, selectedNodeId, onSelectNod
   );
 }
 
-// ===== Retrieval Test Panel =====
-
+// ===== Retrieval Test Panel (暂时隐藏) =====
+/*
 function RetrievalTestPanel({ datasetId }: { datasetId: string }) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<{ content: string; score: number }[]>([]);
@@ -566,6 +751,7 @@ function RetrievalTestPanel({ datasetId }: { datasetId: string }) {
     </div>
   );
 }
+*/
 
 // ===== Feishu-style Right Panel =====
 
@@ -586,7 +772,7 @@ export function KnowledgeBaseRightPanel({ file, deptPath }: { file: FileNode | n
     /* eslint-disable react-hooks/set-state-in-effect -- sync loading state for file preview */
     setLoading(true);
     bffService.knowledge.downloadDocument(deptPath, file.documentId)
-      .then(blob => blob.text())
+      .then(blob => blobToPreviewContent(blob, file.name))
       .then(text => { if (!cancelled) setContent(text || '# 空文件\n\n该文件没有内容。'); })
       .catch(() => { if (!cancelled) setContent('# 加载失败\n\n无法读取文件内容。'); })
       .finally(() => { if (!cancelled) setLoading(false); });
@@ -652,7 +838,7 @@ export function KnowledgeBaseRightPanel({ file, deptPath }: { file: FileNode | n
         ) : (
           <FilePreview file={file} datasetName={datasetInfo?.name || deptPath} content={content} />
         )}
-        <RetrievalTestPanel datasetId={deptPath} />
+        {/* <RetrievalTestPanel datasetId={deptPath} /> */}
       </div>
     </div>
   );

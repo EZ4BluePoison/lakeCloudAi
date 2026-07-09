@@ -213,6 +213,38 @@ export async function sendMessage(
   };
 }
 
+export interface ChatStreamChunk {
+  content: string;
+  done: boolean;
+  conversationId?: string;
+  messageId?: string;
+}
+
+/**
+ * 流式发送消息。
+ * 前端消费后端 /workflows/run SSE 接口，逐步产出文本片段并在 done 时返回会话信息。
+ */
+export async function* sendMessageStream(
+  agentId: string,
+  agentName: string,
+  _agentDescription: string,
+  userMessage: string,
+  conversationId?: string
+): AsyncGenerator<ChatStreamChunk> {
+  for await (const chunk of bffService.chat.sendMessageStream({
+    agentId,
+    agentName,
+    query: userMessage,
+    conversationId,
+  })) {
+    if (chunk.done) {
+      yield { content: chunk.content, done: true, conversationId: chunk.conversationId, messageId: chunk.messageId };
+    } else {
+      yield { content: chunk.content, done: false };
+    }
+  }
+}
+
 export async function sendMessageWithRetry(
   agentId: string,
   agentName: string,

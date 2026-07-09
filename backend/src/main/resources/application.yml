@@ -36,6 +36,11 @@ ai:
     model: ${WUXIDATA_MODEL:/model/Qwen3-Next}
     timeout: ${WUXIDATA_TIMEOUT:60000}
     trust-all-ssl: ${WUXIDATA_TRUST_ALL_SSL:false}
+  voice:
+    base-url: ${VOICE_BASE_URL:http://192.168.20.235:9100}
+    model: ${VOICE_MODEL:/model}
+    timeout: ${VOICE_TIMEOUT:60000}
+    trust-all-ssl: ${VOICE_TRUST_ALL_SSL:false}
 
 app:
   cors:

@@ -23,7 +23,8 @@ interface ConversationState {
   // Actions
   createSession: (agentId: string, title?: string) => string;
   selectSession: (sessionId: string) => void;
-  addMessage: (sessionId: string, role: 'user' | 'assistant', content: string, metadata?: Record<string, unknown>) => void;
+  addMessage: (sessionId: string, role: 'user' | 'assistant', content: string, metadata?: Record<string, unknown>) => string;
+  updateMessage: (sessionId: string, messageId: string, updates: { content?: string; metadata?: Record<string, unknown> }) => void;
   sendMessage: (sessionId: string, content: string, llmConfig: LLMConfig) => Promise<void>;
   getContextForLLM: (sessionId: string, config: ContextWindowConfig) => SimpleChatMessage[];
   deleteSession: (sessionId: string) => void;
@@ -93,6 +94,29 @@ export const useConversationStore = create<ConversationState>()(
               };
             }
             return session;
+          })
+        }));
+        
+        return message.id;
+      },
+      
+      updateMessage: (sessionId: string, messageId: string, updates: { content?: string; metadata?: Record<string, unknown> }) => {
+        set(state => ({
+          sessions: state.sessions.map(session => {
+            if (session.id !== sessionId) return session;
+            return {
+              ...session,
+              messages: session.messages.map(message => {
+                if (message.id !== messageId) return message;
+                return {
+                  ...message,
+                  content: updates.content !== undefined ? updates.content : message.content,
+                  metadata: updates.metadata ? { ...message.metadata, ...updates.metadata } : message.metadata,
+                  timestamp: new Date(),
+                };
+              }),
+              updatedAt: new Date(),
+            };
           })
         }));
       },

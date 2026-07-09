@@ -15,7 +15,7 @@ interface AuthState {
 
 interface AuthActions {
   setToken: (token: string | null) => void;
-  login: (username: string, password: string) => Promise<void>;
+  login: (username: string, password: string, captchaCode: string, captchaKey: string) => Promise<void>;
   logout: () => Promise<void>;
   fetchCurrentUser: () => Promise<void>;
   hasPermission: (code: string) => boolean;
@@ -42,10 +42,10 @@ export const useAuthStore = create<AuthState & AuthActions>()(
         set({ token: accessToken, isAuthenticated: !!accessToken });
       },
 
-      login: async (username, password) => {
+      login: async (username, password, captchaCode, captchaKey) => {
         set({ isLoading: true, error: null });
         try {
-          const result = await authService.login({ username, password });
+          const result = await authService.login({ username, password, captchaCode, captchaKey });
           authService.setAccessToken(result.accessToken);
           set({
             token: result.accessToken,

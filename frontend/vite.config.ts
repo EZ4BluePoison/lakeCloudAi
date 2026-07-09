@@ -11,20 +11,20 @@ export default defineConfig({
     port: 3000,
     proxy: {
       '/knowledge-api': {
-        target: 'http://localhost:9090',
+        target: 'http://192.168.200.61:9090',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/knowledge-api/, ''),
       },
       '/api/v1': {
-        target: 'http://localhost:9090',
+        target: 'http://192.168.200.61:9090',
         changeOrigin: true,
       },
       '/api/auth': {
-        target: 'http://localhost:9090',
+        target: 'http://192.168.200.61:9090',
         changeOrigin: true,
       },
       '/api/admin': {
-        target: 'http://localhost:9090',
+        target: 'http://192.168.200.61:9090',
         changeOrigin: true,
       },
     },

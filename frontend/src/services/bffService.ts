@@ -34,11 +34,18 @@ function getDifyToken(): string | undefined {
   return undefined;
 }
 
+function isValidUUID(value: string | undefined | null): value is string {
+  if (!value) return false;
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-9a-f][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  return uuidRegex.test(value);
+}
+
 function getConsoleAuthHeaders(): Record<string, string> {
   const headers: Record<string, string> = {};
   const token = getConsoleToken();
   if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
+    // 远程后端要求直接传 token，不带 Bearer 前缀
+    headers['Authorization'] = token;
   }
   return headers;
 }
@@ -125,34 +132,128 @@ class BffChatService {
   }
 
   async sendMessage(params: SendChatMessageParams): Promise<SendChatMessageResult> {
-    const conversationId = params.conversationId || `conv-${Date.now()}`;
+    const conversationId = isValidUUID(params.conversationId) ? params.conversationId : undefined;
     const messageId = `msg-${Date.now()}`;
 
-    // 所有聊天统一走后端流式接口，前端不再直接调用模型
+    // 所有聊天统一走控制台 /workflows/run SSE 流式接口，前端不再直接调用模型
     const workflowAppId = await bffService.workflow.resolveAppId(params.agentId, params.agentName);
     if (!workflowAppId) {
       throw new Error(`未能将智能体 "${params.agentName || params.agentId}" 映射到后端应用，请检查应用名称或 ID。`);
     }
 
-    const mode = await bffService.workflow.getAppMode(workflowAppId);
-    console.log('[BFFChat] resolved app:', workflowAppId, 'mode:', mode, 'query:', params.query);
-    if (mode === 'workflow') {
-      // workflow 类型应用走 SSE 流式接口 /workflows/run
-      const answer = await bffService.workflow.runWorkflowBlocking(workflowAppId, {
-        query: params.query,
-        inputs: params.inputs,
-        conversationId,
-      });
-      return { conversationId, messageId, answer };
-    }
-
-    // advanced-chat / chat / chatflow 等使用 chat-messages 接口
-    const { answer, conversationId: chatConversationId } = await bffService.workflow.runChatBlocking(workflowAppId, {
+    console.log('[BFFChat] resolved app:', workflowAppId, 'query:', params.query);
+    const { answer, conversationId: returnedConversationId } = await bffService.workflow.runWorkflowBlocking(workflowAppId, {
       query: params.query,
       inputs: params.inputs,
       conversationId,
     });
-    return { conversationId: chatConversationId || conversationId, messageId, answer };
+    return { conversationId: returnedConversationId || conversationId || `conv-${Date.now()}`, messageId, answer };
+  }
+
+  async *sendMessageStream(
+    params: SendChatMessageParams
+  ): AsyncGenerator<{ done: false; content: string; fullText: string } | { done: true; content: string; conversationId: string; messageId: string }> {
+    const conversationId = isValidUUID(params.conversationId) ? params.conversationId : undefined;
+    const messageId = `msg-${Date.now()}`;
+
+    const workflowAppId = await bffService.workflow.resolveAppId(params.agentId, params.agentName);
+    if (!workflowAppId) {
+      throw new Error(`未能将智能体 "${params.agentName || params.agentId}" 映射到后端应用，请检查应用名称或 ID。`);
+    }
+
+    console.log('[BFFChat] stream resolved app:', workflowAppId, 'query:', params.query);
+
+    const extractFromOutputs = (outputs: unknown): string => {
+      if (!outputs || typeof outputs !== 'object') return '';
+      const record = outputs as Record<string, unknown>;
+      for (const key of ['text', 'answer', 'result', 'content']) {
+        const value = record[key];
+        if (typeof value === 'string') return value;
+      }
+      const candidates = Object.values(record).filter((v): v is string => typeof v === 'string');
+      return candidates[0] || '';
+    };
+
+    const extractEventText = (ev: WorkflowEvent): string => {
+      if (ev.event === 'output') {
+        if (typeof ev.data === 'string') {
+          return ev.data === 'null' ? '' : ev.data;
+        }
+        const data = ev.data as { text?: string; answer?: string; content?: string } | undefined;
+        return data?.text || data?.answer || data?.content || '';
+      }
+      // v2 原数据透传：Dify workflow 事件
+      if (ev.event === 'node_finished') {
+        const data = ev.data as { data?: { outputs?: Record<string, unknown>; text?: string } } | undefined;
+        return extractFromOutputs(data?.data?.outputs) || data?.data?.text || '';
+      }
+      if (ev.event === 'workflow_finished') {
+        const data = ev.data as { data?: { outputs?: Record<string, unknown> } } | undefined;
+        return extractFromOutputs(data?.data?.outputs);
+      }
+      if (ev.event === 'text_chunk' || ev.event === 'agent_message' || ev.event === 'message') {
+        const data = ev.data as { answer?: string; text?: string; data?: string; content?: string } | undefined;
+        return data?.answer || data?.text || data?.data || data?.content || '';
+      }
+      if (typeof ev.data === 'string') {
+        return ev.data === 'null' ? '' : ev.data;
+      }
+      return '';
+    };
+
+    const extractErrorMessage = (ev: WorkflowEvent): string => {
+      if (typeof ev.data === 'string') return ev.data;
+      const data = ev.data as {
+        message?: string;
+        data?: { message?: string; code?: string; status?: number } | string;
+      } | undefined;
+      if (data?.message) return data.message;
+      if (data?.data && typeof data.data === 'object' && data.data.message) {
+        return data.data.message;
+      }
+      if (data?.data && typeof data.data === 'string') return data.data;
+      return '工作流运行出错';
+    };
+
+    let fullText = '';
+    let finalOutputs: Record<string, unknown> | null = null;
+    let returnedConversationId: string | undefined;
+
+    for await (const ev of bffService.workflow.runWorkflowStream(workflowAppId, {
+      query: params.query,
+      inputs: params.inputs,
+      conversationId,
+    })) {
+      if (ev.data && typeof ev.data === 'object' && 'conversation_id' in ev.data && typeof (ev.data as Record<string, unknown>).conversation_id === 'string') {
+        returnedConversationId = (ev.data as Record<string, unknown>).conversation_id as string;
+      }
+      if (ev.event === 'workflow_finished') {
+        const data = ev.data as { data?: { outputs?: Record<string, unknown> } } | undefined;
+        if (data?.data?.outputs) finalOutputs = data.data.outputs;
+        continue;
+      }
+
+      if (ev.event === 'error') {
+        throw new Error(extractErrorMessage(ev));
+      }
+
+      const chunk = extractEventText(ev);
+      if (chunk) {
+        fullText += chunk;
+        yield { done: false, content: chunk, fullText };
+      }
+    }
+
+    // 如果流式事件未返回文本，尝试取最终 outputs 中的字符串字段
+    if (!fullText && finalOutputs) {
+      const candidates = Object.values(finalOutputs).filter((v): v is string => typeof v === 'string');
+      if (candidates.length > 0) {
+        fullText = candidates[0];
+        yield { done: false, content: fullText, fullText };
+      }
+    }
+
+    yield { done: true, content: fullText, conversationId: returnedConversationId || conversationId || `conv-${Date.now()}`, messageId };
   }
 
   async sendFeedback(messageId: string, rating: 'like' | 'dislike', content?: string): Promise<void> {
@@ -219,15 +320,18 @@ class BffWorkflowService {
   /** 流式运行指定应用的工作流，以 AsyncGenerator 形式产出 SSE 事件 */
   async *runWorkflowStream(appId: string, options: RunWorkflowOptions): AsyncGenerator<WorkflowEvent> {
     // 与 /workflows/run-all 保持一致的参数：只传 query（及可选 inputs）
+    // Dify /v1/chat-messages 要求 conversation_id 为合法 UUID，否则忽略由后端新建会话
+    const conversationId = isValidUUID(options.conversationId) ? options.conversationId : undefined;
     const requestBody = {
       ...(options.inputs || {}),
       query: options.query,
+      ...(conversationId ? { conversation_id: conversationId } : {}),
     };
     console.log('[BFFWorkflow] runWorkflowStream request body:', requestBody);
 
-    const res = await fetch(`${API_BASE_URL}/api/console/applications/apps/${appId}/workflows/run`, {
+    const res = await fetch(`${API_BASE_URL}/api/console/applications/apps/${appId}/workflows/v2/run`, {
       method: 'POST',
-      headers: getJsonAuthHeaders(),
+      headers: { Accept: 'text/event-stream', ...getJsonAuthHeaders() },
       body: JSON.stringify(requestBody),
     });
 
@@ -273,9 +377,12 @@ class BffWorkflowService {
           if (currentEvent && currentData.length > 0) {
             const dataStr = currentData.join('\n');
             try {
-              yield { event: currentEvent, data: JSON.parse(dataStr) };
+              const parsed = JSON.parse(dataStr);
+              console.log('[BFFWorkflow] SSE event:', currentEvent, parsed);
+              yield { event: currentEvent, data: parsed };
             } catch {
               // 后端可能直接返回纯文本，作为字符串事件透传
+              console.log('[BFFWorkflow] SSE raw event:', currentEvent, dataStr);
               yield { event: currentEvent, data: dataStr };
             }
           }
@@ -289,38 +396,60 @@ class BffWorkflowService {
     if (currentEvent && currentData.length > 0) {
       const dataStr = currentData.join('\n');
       try {
-        yield { event: currentEvent, data: JSON.parse(dataStr) };
+        const parsed = JSON.parse(dataStr);
+        console.log('[BFFWorkflow] SSE event:', currentEvent, parsed);
+        yield { event: currentEvent, data: parsed };
       } catch {
+        console.log('[BFFWorkflow] SSE raw event:', currentEvent, dataStr);
         yield { event: currentEvent, data: dataStr };
       }
     }
   }
 
-  /** 阻塞式运行工作流，消费完整 SSE 流后返回最终文本输出 */
-  async runWorkflowBlocking(appId: string, options: RunWorkflowOptions): Promise<string> {
+  /** 阻塞式运行工作流，消费完整 SSE 流后返回最终文本输出及会话 ID */
+  async runWorkflowBlocking(appId: string, options: RunWorkflowOptions): Promise<{ answer: string; conversationId?: string }> {
     let outputs: Record<string, unknown> | null = null;
     let streamedText = '';
+    let conversationId: string | undefined;
 
     for await (const ev of this.runWorkflowStream(appId, options)) {
+      if (ev.data && typeof ev.data === 'object' && 'conversation_id' in ev.data && typeof (ev.data as Record<string, unknown>).conversation_id === 'string') {
+        conversationId = (ev.data as Record<string, unknown>).conversation_id as string;
+      }
       if (ev.event === 'workflow_finished') {
-        const data = ev.data as { outputs?: Record<string, unknown>; status?: string } | undefined;
-        outputs = data?.outputs || null;
-      } else if (typeof ev.data === 'string') {
-        // 后端直接返回纯文本时直接累加
-        streamedText += ev.data;
+        const data = ev.data as { data?: { outputs?: Record<string, unknown> } } | undefined;
+        outputs = data?.data?.outputs || null;
+      } else if (ev.event === 'node_finished') {
+        const data = ev.data as { data?: { outputs?: Record<string, unknown>; text?: string } } | undefined;
+        const outputText = data?.data?.text
+          || Object.values(data?.data?.outputs || {})
+            .filter((v): v is string => typeof v === 'string')[0];
+        if (outputText) streamedText += outputText;
+      } else if (ev.event === 'output') {
+        // 控制台 /workflows/run 统一输出 text/event-stream，答案在 output 事件中
+        const chunk = typeof ev.data === 'string' ? ev.data : '';
+        if (chunk && chunk !== 'null') streamedText += chunk;
+      } else if (ev.event === 'error') {
+        const msg = typeof ev.data === 'string' ? ev.data : '';
+        if (msg && msg !== 'null') {
+          throw new Error(msg);
+        }
       } else if (ev.event === 'text_chunk' || ev.event === 'agent_message' || ev.event === 'message') {
         const data = ev.data as { answer?: string; text?: string; data?: string } | undefined;
         const chunk = data?.answer || data?.text || data?.data || '';
         if (typeof chunk === 'string') streamedText += chunk;
+      } else if (typeof ev.data === 'string') {
+        // 后端直接返回纯文本时直接累加
+        streamedText += ev.data;
       }
     }
 
     if (outputs) {
       const candidates = Object.values(outputs).filter((v): v is string => typeof v === 'string');
-      if (candidates.length > 0) return candidates[0];
+      if (candidates.length > 0) return { answer: candidates[0], conversationId };
     }
 
-    return streamedText || '工作流已完成，但未返回文本结果。';
+    return { answer: streamedText || '工作流已完成，但未返回文本结果。', conversationId };
   }
 
   /**
@@ -382,127 +511,6 @@ class BffWorkflowService {
     return '工作流已完成，但未返回文本结果。';
   }
 
-  // ==================== Chat (advanced-chat / chat) API ====================
-
-  private modeCache = new Map<string, string>();
-
-  async getAppMode(appId: string): Promise<string> {
-    if (this.modeCache.has(appId)) return this.modeCache.get(appId)!;
-    try {
-      const app = await bffService.application.getApplication(appId);
-      const mode = app?.mode || 'workflow';
-      this.modeCache.set(appId, mode);
-      return mode;
-    } catch (err) {
-      console.warn('[BFFWorkflow] 获取应用模式失败，默认按 workflow 处理:', err);
-      return 'workflow';
-    }
-  }
-
-  /** 流式运行 Chat 类型应用（advanced-chat / chat） */
-  async *runChatStream(appId: string, options: RunWorkflowOptions): AsyncGenerator<WorkflowEvent> {
-    const body: Record<string, unknown> = {
-      inputs: options.inputs || {},
-      query: options.query,
-      response_mode: 'streaming',
-      user: options.user || 'local-user',
-    };
-    if (options.conversationId) body.conversation_id = options.conversationId;
-
-    const res = await fetch(`${API_BASE_URL}/api/console/applications/apps/${appId}/chat-messages`, {
-      method: 'POST',
-      headers: getJsonAuthHeaders(),
-      body: JSON.stringify(body),
-    });
-
-    if (!res.ok) {
-      const text = await res.text();
-      console.error('[BFFWorkflow] runChat error:', res.status, text);
-      let displayMsg = text;
-      try {
-        const errJson = JSON.parse(text) as { code?: string; message?: string };
-        if (errJson.message) {
-          displayMsg = `${errJson.code ? `[${errJson.code}] ` : ''}${errJson.message}`;
-        }
-      } catch {
-        // keep raw text
-      }
-      throw new Error(`chat run failed: ${res.status} ${displayMsg}`);
-    }
-
-    if (!res.body) {
-      throw new Error('chat response body is empty');
-    }
-
-    const reader = res.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = '';
-    let currentEvent = '';
-    const currentData: string[] = [];
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split('\n');
-      buffer = lines.pop() || '';
-
-      for (const line of lines) {
-        if (line.startsWith('event:')) {
-          currentEvent = line.slice(6).trim();
-        } else if (line.startsWith('data:')) {
-          currentData.push(line.slice(5).trim());
-        } else if (line.trim() === '') {
-          if (currentEvent && currentData.length > 0) {
-            const dataStr = currentData.join('\n');
-            try {
-              yield { event: currentEvent, data: JSON.parse(dataStr) };
-            } catch {
-              // 后端可能直接返回纯文本，作为字符串事件透传
-              yield { event: currentEvent, data: dataStr };
-            }
-          }
-          currentEvent = '';
-          currentData.length = 0;
-        }
-      }
-    }
-
-    if (currentEvent && currentData.length > 0) {
-      const dataStr = currentData.join('\n');
-      try {
-        yield { event: currentEvent, data: JSON.parse(dataStr) };
-      } catch {
-        yield { event: currentEvent, data: dataStr };
-      }
-    }
-  }
-
-  /** 阻塞式运行 Chat 应用，消费完整 SSE 流后返回最终文本与会话 ID */
-  async runChatBlocking(appId: string, options: RunWorkflowOptions): Promise<{ answer: string; conversationId?: string }> {
-    let answer = '';
-    let conversationId: string | undefined;
-
-    for await (const ev of this.runChatStream(appId, options)) {
-      if (typeof ev.data === 'string') {
-        // 后端直接返回纯文本时直接累加
-        answer += ev.data;
-      } else if (ev.event === 'agent_message' || ev.event === 'message') {
-        const data = ev.data as { answer?: string; text?: string; conversation_id?: string } | undefined;
-        const chunk = data?.answer || data?.text || '';
-        if (typeof chunk === 'string') answer += chunk;
-        if (!conversationId && data?.conversation_id) conversationId = data.conversation_id;
-      } else if (ev.event === 'message_end') {
-        // 流正常结束
-      } else if (ev.event === 'error') {
-        const data = ev.data as { message?: string; code?: string } | undefined;
-        throw new Error(data?.message || '聊天流返回错误');
-      }
-    }
-
-    return { answer: answer || '聊天应用未返回文本结果。', conversationId };
-  }
 }
 
 function toBffApplication(raw: unknown): BffApplication {
@@ -654,9 +662,23 @@ function formatBytes(value?: number): string {
   return `${(value / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function toISO(ts?: number): string | undefined {
-  if (ts == null) return undefined;
-  return new Date(ts * 1000).toISOString();
+function toISO(ts?: number | string | null): string | undefined {
+  if (ts == null || ts === '') return undefined;
+  let ms: number | undefined;
+  if (typeof ts === 'number') {
+    ms = ts < 1e12 ? ts * 1000 : ts;
+  } else {
+    const n = Number(ts);
+    if (!Number.isNaN(n) && ts.trim() !== '') {
+      ms = n < 1e12 ? n * 1000 : n;
+    } else {
+      const d = new Date(ts);
+      return Number.isNaN(d.getTime()) ? undefined : d.toISOString();
+    }
+  }
+  if (ms == null) return undefined;
+  const d = new Date(ms);
+  return Number.isNaN(d.getTime()) ? undefined : d.toISOString();
 }
 
 function toBffDataset(raw: unknown): BffDataset {
@@ -666,8 +688,8 @@ function toBffDataset(raw: unknown): BffDataset {
     name: r.name as string,
     description: (r.description as string | undefined) || '',
     documentCount: (r.document_count as number | undefined) ?? 0,
-    createdAt: toISO(r.created_at as number | undefined) || '',
-    updatedAt: toISO(r.updated_at as number | undefined) || '',
+    createdAt: toISO(r.created_at as number | string | undefined) || '',
+    updatedAt: toISO(r.updated_at as number | string | undefined) || '',
   };
 }
 
@@ -682,8 +704,8 @@ function toBffDocument(raw: unknown): BffDocument {
     size: formatBytes(uploadFile.size as number | undefined),
     status: ((r.indexing_status as string | undefined) || 'pending') as BffDocument['status'],
     statusText: (r.display_status as string | undefined) || (r.indexing_status as string | undefined) || 'pending',
-    createdAt: toISO(r.created_at as number | undefined) || '',
-    updatedAt: toISO(r.created_at as number | undefined) || '',
+    createdAt: toISO(r.created_at as number | string | undefined) || '',
+    updatedAt: toISO(r.created_at as number | string | undefined) || '',
   };
 }
 
