@@ -379,10 +379,18 @@ export function MessagesRightPanel({
   const isFav = favorites.includes(agentId);
   const [inputValue, setInputValue] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [isWaiting, setIsWaiting] = useState(false);
   const [conversationId, setConversationId] = useState<string | undefined>(undefined);
   const [showHistory, setShowHistory] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  // 打字机效果相关 refs
+  const typewriterTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const typewriterTargetRef = useRef('');
+  const typewriterSessionIdRef = useRef('');
+  const typewriterMsgIdRef = useRef('');
+  const typewriterOnCompleteRef = useRef<(() => void) | null>(null);
 
   const {
     sessions,
@@ -601,6 +609,68 @@ export function MessagesRightPanel({
     );
   };
 
+  // 打字机效果：把 SSE 传回的累积全文逐字写入消息
+  const stopTypewriter = useCallback(() => {
+    if (typewriterTimerRef.current) {
+      clearInterval(typewriterTimerRef.current);
+      typewriterTimerRef.current = null;
+    }
+  }, []);
+
+  const flushTypewriter = useCallback((sessionId: string, msgId: string, fullText: string) => {
+    stopTypewriter();
+    typewriterTargetRef.current = fullText;
+    typewriterSessionIdRef.current = sessionId;
+    typewriterMsgIdRef.current = msgId;
+    updateStoreMessage(sessionId, msgId, { content: fullText });
+  }, [stopTypewriter, updateStoreMessage]);
+
+  const startTypewriter = useCallback(() => {
+    if (typewriterTimerRef.current) return;
+    typewriterTimerRef.current = setInterval(() => {
+      const target = typewriterTargetRef.current;
+      const sessionId = typewriterSessionIdRef.current;
+      const msgId = typewriterMsgIdRef.current;
+      if (!sessionId || !msgId) return;
+      const state = useConversationStore.getState();
+      const msg = state.sessions.find(s => s.id === sessionId)?.messages.find(m => m.id === msgId);
+      const currentLen = msg?.content?.length || 0;
+      if (currentLen < target.length) {
+        const displayText = target.slice(0, currentLen + 1);
+        state.updateMessage(sessionId, msgId, { content: displayText });
+      } else {
+        stopTypewriter();
+        typewriterOnCompleteRef.current?.();
+        typewriterOnCompleteRef.current = null;
+      }
+    }, 30);
+  }, [stopTypewriter]);
+
+  const feedTypewriter = useCallback((sessionId: string, msgId: string, fullText: string, onComplete?: () => void) => {
+    typewriterSessionIdRef.current = sessionId;
+    typewriterMsgIdRef.current = msgId;
+    typewriterTargetRef.current = fullText;
+    if (onComplete) {
+      typewriterOnCompleteRef.current = onComplete;
+    }
+    const state = useConversationStore.getState();
+    const msg = state.sessions.find(s => s.id === sessionId)?.messages.find(m => m.id === msgId);
+    const currentLen = msg?.content?.length || 0;
+    if (currentLen >= fullText.length) {
+      // 已经播完，直接触发回调
+      stopTypewriter();
+      typewriterOnCompleteRef.current?.();
+      typewriterOnCompleteRef.current = null;
+      return;
+    }
+    startTypewriter();
+  }, [startTypewriter, stopTypewriter]);
+
+  // 组件卸载或切换会话时停止打字机
+  useEffect(() => {
+    return () => stopTypewriter();
+  }, [stopTypewriter]);
+
   const handleSend = async () => {
     const text = inputValue.trim();
     if (!text || !currentSession || isTyping) return;
@@ -608,12 +678,14 @@ export function MessagesRightPanel({
     addStoreMessage(currentSession.id, 'user', text);
     setInputValue('');
     setIsTyping(true);
+    setIsWaiting(true);
 
     const assistantMessageId = addStoreMessage(currentSession.id, 'assistant', '');
 
     try {
       let streamedContent = '';
       let finalConversationId: string | undefined;
+      let hasReceivedChunk = false;
 
       for await (const chunk of sendMessageStream(
         agentId,
@@ -626,8 +698,14 @@ export function MessagesRightPanel({
           finalConversationId = chunk.conversationId;
           break;
         }
-        streamedContent += chunk.content;
-        updateStoreMessage(currentSession.id, assistantMessageId, { content: streamedContent });
+        // 收到第一个有效内容后，关闭思考提示
+        if (!hasReceivedChunk) {
+          hasReceivedChunk = true;
+          setIsWaiting(false);
+        }
+        // chunk.content 是 SSE 消费后的累积全文，交给打字机逐字显示
+        streamedContent = chunk.content;
+        feedTypewriter(currentSession.id, assistantMessageId, streamedContent);
       }
 
       // BFF 返回的会话 ID 用于维持多轮对话
@@ -636,19 +714,22 @@ export function MessagesRightPanel({
       }
 
       const followUpOptions = generateFollowUpOptions(text, streamedContent);
-      updateStoreMessage(currentSession.id, assistantMessageId, {
-        content: streamedContent,
-        metadata: { followUpOptions },
+      // 等打字机全部播完再显示后续推荐问题
+      feedTypewriter(currentSession.id, assistantMessageId, streamedContent, () => {
+        updateStoreMessage(currentSession.id, assistantMessageId, {
+          metadata: { followUpOptions },
+        });
       });
     } catch (error) {
       console.error('Chat API error:', error);
-      updateStoreMessage(
+      flushTypewriter(
         currentSession.id,
         assistantMessageId,
-        { content: `抱歉，我暂时无法回答您的问题。错误信息：${error instanceof Error ? error.message : '未知错误'}` }
+        `抱歉，我暂时无法回答您的问题。错误信息：${error instanceof Error ? error.message : '未知错误'}`
       );
     } finally {
       setIsTyping(false);
+      setIsWaiting(false);
     }
   };
 
@@ -753,17 +834,13 @@ export function MessagesRightPanel({
             </div>
           ))}
 
-          {isTyping && (
+          {isWaiting && (
             <div className="flex gap-3 fade-in-up">
               <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: agent.avatarGradient }}>
                 <Icon className="w-4 h-4 text-white" />
               </div>
-              <div className="bg-white rounded-lg rounded-bl-sm px-4 py-3 shadow-sm">
-                <div className="flex gap-1">
-                  <span className="w-2 h-2 rounded-full bg-[#3370FF] animate-bounce" style={{ animationDelay: '0ms' }} />
-                  <span className="w-2 h-2 rounded-full bg-[#3370FF] animate-bounce" style={{ animationDelay: '150ms' }} />
-                  <span className="w-2 h-2 rounded-full bg-[#3370FF] animate-bounce" style={{ animationDelay: '300ms' }} />
-                </div>
+              <div className="bg-white rounded-lg rounded-bl-sm px-4 py-3 shadow-sm text-[14px] text-[#8F959E]">
+                思考中…
               </div>
             </div>
           )}

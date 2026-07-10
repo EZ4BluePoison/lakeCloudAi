@@ -15,11 +15,14 @@ export interface AuthResult {
 export interface JwtPayload {
   sub?: string;
   userId?: string;
+  uid?: string;
   username?: string;
   tenant_id?: string;
   tenantId?: string;
+  tid?: string;
   roles?: string[];
   permissions?: string[];
+  perms?: string[];
   exp?: number;
   type?: string;
 }

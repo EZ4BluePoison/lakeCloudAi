@@ -240,7 +240,8 @@ export async function* sendMessageStream(
     if (chunk.done) {
       yield { content: chunk.content, done: true, conversationId: chunk.conversationId, messageId: chunk.messageId };
     } else {
-      yield { content: chunk.content, done: false };
+      // 传回累积全文，方便 UI 做打字机效果
+      yield { content: chunk.fullText, done: false };
     }
   }
 }

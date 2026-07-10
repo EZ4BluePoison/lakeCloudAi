@@ -81,30 +81,30 @@ export const useAuthStore = create<AuthState & AuthActions>()(
           set({ ...initialState });
           return;
         }
-        set({ isLoading: true });
-        try {
-          const payload = authService.parseJwt(token);
-          if (!payload?.sub) {
-            throw new Error('Token 无效');
-          }
-          const user = await authService.getCurrentUser(payload.sub);
-          set({
-            token: token,
-            user,
-            roles: payload.roles || [],
-            permissions: payload.permissions || [],
-            isAuthenticated: true,
-            isLoading: false,
-            error: null,
-          });
-        } catch (err) {
+
+        const payload = authService.parseJwt(token);
+        if (!payload?.sub || (payload.exp && payload.exp * 1000 < Date.now())) {
           authService.setAccessToken(null);
-          set({
-            ...initialState,
-            isLoading: false,
-            error: err instanceof Error ? err.message : '获取用户信息失败',
-          });
+          set({ ...initialState, error: '登录已过期，请重新登录' });
+          return;
         }
+
+        // 刷新时优先使用持久化的用户信息，避免后端 /api/admin/users/{id} 不可用或被拒绝导致被迫退出
+        const { token: persistedToken, user: persistedUser, roles: persistedRoles, permissions: persistedPermissions } = get();
+        set({
+          token: persistedToken || token,
+          user: persistedUser || {
+            id: payload.uid || payload.userId || payload.sub || '',
+            username: payload.username || payload.sub || '',
+            displayName: payload.username || payload.sub || '',
+            status: 'ACTIVE',
+          },
+          roles: persistedRoles || payload.roles || [],
+          permissions: persistedPermissions || payload.permissions || [],
+          isAuthenticated: true,
+          isLoading: false,
+          error: null,
+        });
       },
 
       hasPermission: (code) => {

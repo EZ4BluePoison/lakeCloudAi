@@ -201,13 +201,16 @@ class BffChatService {
       return '';
     };
 
-    const extractErrorMessage = (ev: WorkflowEvent): string => {
+    const extractErrorMessage = (ev: WorkflowEvent): string | undefined => {
+      if (ev.data == null || ev.data === '' || ev.data === 'null') return undefined;
       if (typeof ev.data === 'string') return ev.data;
       const data = ev.data as {
         message?: string;
+        error?: string;
         data?: { message?: string; code?: string; status?: number } | string;
       } | undefined;
       if (data?.message) return data.message;
+      if (data?.error) return data.error;
       if (data?.data && typeof data.data === 'object' && data.data.message) {
         return data.data.message;
       }
@@ -233,8 +236,13 @@ class BffChatService {
         continue;
       }
 
+      // 忽略 data 为 null/空/"null" 的 error 事件（Dify 偶尔会发空 error 事件）
       if (ev.event === 'error') {
-        throw new Error(extractErrorMessage(ev));
+        const errMsg = extractErrorMessage(ev);
+        if (errMsg) {
+          throw new Error(errMsg);
+        }
+        continue;
       }
 
       const chunk = extractEventText(ev);
@@ -320,16 +328,21 @@ class BffWorkflowService {
   /** 流式运行指定应用的工作流，以 AsyncGenerator 形式产出 SSE 事件 */
   async *runWorkflowStream(appId: string, options: RunWorkflowOptions): AsyncGenerator<WorkflowEvent> {
     // 与 /workflows/run-all 保持一致的参数：只传 query（及可选 inputs）
-    // Dify /v1/chat-messages 要求 conversation_id 为合法 UUID，否则忽略由后端新建会话
-    const conversationId = isValidUUID(options.conversationId) ? options.conversationId : undefined;
-    const requestBody = {
+    // 后端 /workflows/v2/run 会把 conversation_id 透传给 Dify，由调用方决定是否复用会话
+    const requestBody: Record<string, unknown> = {
       ...(options.inputs || {}),
       query: options.query,
-      ...(conversationId ? { conversation_id: conversationId } : {}),
     };
+    if (options.conversationId) {
+      requestBody.conversation_id = options.conversationId;
+    }
+    if (options.user) {
+      requestBody.user = options.user;
+    }
     console.log('[BFFWorkflow] runWorkflowStream request body:', requestBody);
 
-    const res = await fetch(`${API_BASE_URL}/api/console/applications/apps/${appId}/workflows/v2/run`, {
+    // 临时切换到 /workflows/run（非 v2）观察对话功能是否正常
+    const res = await fetch(`${API_BASE_URL}/api/console/applications/apps/${appId}/workflows/run`, {
       method: 'POST',
       headers: { Accept: 'text/event-stream', ...getJsonAuthHeaders() },
       body: JSON.stringify(requestBody),
@@ -516,7 +529,8 @@ class BffWorkflowService {
 function toBffApplication(raw: unknown): BffApplication {
   const r = raw as Record<string, unknown>;
   return {
-    id: String(r.id || ''),
+    // 后端应用列表返回 application_id 作为工作流运行接口真正需要的 appId
+    id: String(r.application_id || r.id || ''),
     name: String(r.name || ''),
     description: (r.description as string | undefined) || '',
     mode: String(r.mode || 'chat'),
